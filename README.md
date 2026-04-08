@@ -9,6 +9,6 @@ This project aims to develop a system that analyzes student data using computati
 The goal is to assist educators and institutions in identifying at-risk students at an early stage, enabling timely interventions, personalized support, and improved academic outcomes.
 
 project team :
-Anvith kumar
-Kachithananadha
-Harishkumar
+Anvith kumar,
+Kachithananadha,
+Harishkumar.
