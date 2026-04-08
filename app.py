@@ -1,79 +1,90 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 import mysql.connector
 
 app = Flask(__name__)
 
-# 🔹 MySQL Connection (FIXED VERSION)
-try:
-    db = mysql.connector.connect(
-        host="127.0.0.1",   # IMPORTANT
-        user="root",
-        password="admin",
-        database="student_db",
-        port=3306,
-        auth_plugin='mysql_native_password'
-    )
-    cursor = db.cursor()
-    print("✅ MySQL Connected Successfully")
+# ✅ MySQL Connection (UPDATED AS YOU REQUESTED)
+db = mysql.connector.connect(
+    host="127.0.0.1",
+    user="root",
+    password="admin",
+    database="student_db",
+    port=3306,
+    auth_plugin='mysql_native_password'
+)
 
-except mysql.connector.Error as err:
-    print(f"❌ Connection Error: {err}")
+cursor = db.cursor()
 
 
-# 🔹 Home Page
+# 🏠 HOME PAGE
 @app.route('/')
 def home():
-    return render_template("index.html")
+    return render_template('home.html')
 
 
-# 🔹 Prediction + Store Data
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        # 🔹 Get form data
+# 📝 REGISTER PAGE
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
         name = request.form['name']
-        attendance = int(request.form['attendance'])
-        marks = int(request.form['marks'])
-        cgpa = float(request.form['cgpa'])
+        email = request.form['email']
+        role = request.form['role']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
 
-        print("📥 Received:", name, attendance, marks, cgpa)
+        # Password check
+        if password != confirm_password:
+            return "❌ Passwords do not match"
 
-        # 🔹 Logic
-        if attendance < 75 and marks < 40:
-            result = "High Risk"
-            color = "red"
-        elif cgpa < 6:
-            result = "Medium Risk"
-            color = "orange"
+        # Insert into DB
+        query = "INSERT INTO users (name, email, role, password) VALUES (%s, %s, %s, %s)"
+        values = (name, email, role, password)
+
+        cursor.execute(query, values)
+        db.commit()
+
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+
+# 🔐 LOGIN PAGE
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+
+        query = "SELECT * FROM users WHERE email=%s AND password=%s"
+        cursor.execute(query, (email, password))
+
+        user = cursor.fetchone()
+
+        if user:
+            role = user[3]  # role column
+
+            if role == 'student':
+                return redirect(url_for('student_dashboard'))
+            elif role == 'teacher':
+                return redirect(url_for('teacher_dashboard'))
         else:
-            result = "Low Risk"
-            color = "green"
+            return "❌ Invalid Email or Password"
 
-        print("📊 Result:", result)
-
-        # 🔹 Insert into DB
-        try:
-            query = """
-            INSERT INTO students (name, attendance, marks, cgpa, result)
-            VALUES (%s, %s, %s, %s, %s)
-            """
-            values = (name, attendance, marks, cgpa, result)
-
-            cursor.execute(query, values)
-            db.commit()
-
-            print("✅ Data inserted successfully")
-
-        except Exception as e:
-            print("❌ Insert Error:", e)
-
-        # 🔹 Show result
-        return render_template("result.html", name=name, result=result, color=color)
-
-    except Exception as e:
-        return f"❌ Error: {e}"
+    return render_template('login.html')
 
 
-# 🔹 Run App
+# 👨‍🎓 STUDENT DASHBOARD
+@app.route('/student')
+def student_dashboard():
+    return render_template('student_dashboard.html')
+
+
+# 👨‍🏫 TEACHER DASHBOARD
+@app.route('/teacher')
+def teacher_dashboard():
+    return render_template('teacher_dashboard.html')
+
+
+# ▶️ RUN APP
 if __name__ == '__main__':
     app.run(debug=True)
