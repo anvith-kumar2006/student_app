@@ -122,26 +122,84 @@ project/
 
 
 
+🗓️ DAY 1 (8 HOURS) — 🧱 FOUNDATION + UI
+🎯 Goal: Clean system + visible data
+Fix dashboard UI (sidebar, cards, sections)
+Show:
+Classes list
+Students list
+Ensure:
+Create class ✅
+Join class ✅
+Add subject ✅
+
+👉 Output: Working clean UI + basic system
 
 
+🗓️ DAY 2 (8 HOURS) — 💪 CORE FEATURES
+🎯 Goal: Data system complete
+Create marks table
+Teacher enters marks manually
+Student views marks
+Add attendance field
+
+👉 Output:
+
+Marks working ✅
+Attendance working ✅
 
 
+🗓️ DAY 3 (6 HOURS) — 🤖 AI SYSTEM
+🎯 Goal: Prediction system
+Build simple ML model:
+Input: marks + attendance
+Output: risk (0/1)
+Show in dashboard:
+Green → Safe
+Red → At Risk
+
+👉 Output:
+
+AI working ✅
+Dashboard showing prediction ✅
+
+🗓️ DAY 4 (4 HOURS) — 🔥 ADVANCED FEATURES
+🎯 Goal: Make project stand out
+👨‍🏫 Feature 1: CSV / Excel Upload
+Upload file
+Parse using pandas
+Insert into DB
+
+👉 Bulk data entry (VERY IMPRESSIVE)
+
+👨‍🎓 Feature 2: Performance Graph
+Use Chart.js
+Show marks visually
+
+👉 Makes UI look modern + smart
+
+🗓️ DAY 5 — 🎯 FINALIZATION + SUBMISSION
+🎯 Goal: Clean & presentable project
+Fix bugs
+Improve UI spacing
+Add:
+success messages
+proper navigation
+Push final code to GitHub
+Add README
 
 
+🧠 FINAL PROJECT FEATURES (AFTER 5 DAYS)
 
+Your project will have:
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+✅ Login system
+✅ Teacher dashboard
+✅ Student dashboard
+✅ Class & subject system
+✅ Marks + attendance
+✅ 🤖 AI prediction
+✅ 📂 CSV/Excel upload
+✅ 📊 Performance graph
+✅ Clean UI
+✅ GitHub repo
