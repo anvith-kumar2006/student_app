@@ -1,16 +1,43 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Student Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
+{% extends "base.html" %}
 
-<body>
-    <div class="container">
-        <h1>Student Dashboard</h1>
-        <p>Welcome, Student 👋</p>
+{% block content %}
 
-        <a href="/">Home</a>
-    </div>
-</body>
-</html>
+<h1>Student Dashboard</h1>
+
+<!-- Cards -->
+<div class="cards">
+    <div class="card blue">Attendance: --%</div>
+    <div class="card green">Performance: Good</div>
+    <div class="card red">Risk Level: Low</div>
+</div>
+
+<!-- Join Class -->
+<div class="section">
+    <h3>Join Class</h3>
+    <form method="POST" action="/join_class">
+        <input type="text" name="class_code" placeholder="Enter Class Code" required>
+        <button>Join Class</button>
+    </form>
+</div>
+
+<!-- Subjects -->
+<div class="section">
+    <h3>Your Subjects</h3>
+    <table>
+        <tr>
+            <th>Subject</th>
+            <th>Code</th>
+        </tr>
+        <tr>
+            <td colspan="2">No subjects added yet</td>
+        </tr>
+    </table>
+</div>
+
+<!-- Performance Section -->
+<div class="section">
+    <h3>Performance Overview</h3>
+    <p>Marks, attendance and AI prediction will appear here.</p>
+</div>
+
+{% endblock %}

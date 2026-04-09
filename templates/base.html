@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body>
+
+<div class="sidebar" id="sidebar">
+<h2>AI System</h2>
+<a href="/teacher">Dashboard</a>
+</div>
+
+<div class="main">
+<div class="topbar">
+<button onclick="toggleSidebar()">☰</button>
+<a href="/logout">Logout</a>
+</div>
+
+{% block content %}{% endblock %}
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

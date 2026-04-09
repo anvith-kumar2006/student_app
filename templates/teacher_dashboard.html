@@ -1,16 +1,75 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Teacher Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
+{% extends "base.html" %}
 
-<body>
-    <div class="container">
-        <h1>Teacher Dashboard</h1>
-        <p>Welcome, Teacher 👋</p>
+{% block content %}
 
-        <a href="/">Home</a>
-    </div>
-</body>
-</html>
+<h1>Teacher Dashboard</h1>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="alert">{{ msg }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<!-- Dashboard Cards -->
+<div class="cards">
+    <div class="card blue">Total Classes: {{ classes|length }}</div>
+    <div class="card green">Students: {{ students|length }}</div>
+    <div class="card red">At Risk: --</div>
+</div>
+
+<!-- Create Class -->
+<div class="section">
+    <h3>Create Class</h3>
+    <form method="POST" action="/create_class">
+        <input type="text" name="class_name" placeholder="Class Name" required>
+        <button>Create Class</button>
+    </form>
+</div>
+
+<!-- Add Subject -->
+<div class="section">
+    <h3>Add Subject</h3>
+    <form method="POST" action="/add_subject">
+
+        <input type="text" name="subject_name" placeholder="Subject Name" required>
+
+        <select name="class_id" required>
+            <option value="">Select Class</option>
+            {% for c in classes %}
+            <option value="{{ c[0] }}">{{ c[1] }}</option>
+            {% endfor %}
+        </select>
+
+        <input type="number" name="min_attendance" placeholder="Min Attendance" required>
+        <input type="number" name="min_marks" placeholder="Min Marks" required>
+        <input type="number" name="assignment_marks" placeholder="Assignment Marks" required>
+
+        <button>Add Subject</button>
+    </form>
+</div>
+
+<!-- Students Table -->
+<div class="section">
+    <h3>Students</h3>
+
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Class</th>
+        </tr>
+
+        {% for s in students %}
+        <tr>
+            <td>{{ s[0] }}</td>
+            <td>{{ s[1] }}</td>
+            <td>{{ s[2] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+{% endblock %}
