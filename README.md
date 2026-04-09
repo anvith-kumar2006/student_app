@@ -12,3 +12,136 @@ project team :
 Anvith kumar,
 Kachithananadha,
 Harishkumar.
+
+
+🧠 1. SYSTEM DESIGN (BIG PICTURE)
+Login System
+   ↓
+Role-Based Dashboard
+   ↓
+(Teacher / Student / Admin)
+   ↓
+Analytics + AI Prediction + Data
+
+
+🎨 2. UI DESIGN (LIKE YOUR IMAGE)
+🔥 Layout Structure
+📌 LEFT SIDEBAR (Main Navigation)
+Dashboard
+Classes
+Subjects
+Students
+Attendance
+Marks
+Predictions (🔥 AI Feature)
+Reports
+
+📌 TOP NAVBAR
+☰ Menu button (collapse sidebar)
+User profile (right side)
+Logout
+
+
+📌 MAIN CONTENT AREA
+Cards (stats)
+Tables (data)
+Graphs (later)
+
+
+🧱 3. YOUR DASHBOARD STRUCTURE
+👨‍🏫 TEACHER DASHBOARD
+🔹 Cards
+Total Students
+Total Classes
+At-Risk Students 🚨
+Average Performance
+
+
+🔹 Sections
+📚 Classes
+Create class
+View class list
+Show class code
+📖 Subjects
+Add subject
+View subjects
+👨‍🎓 Students
+List students
+Filter by class
+
+
+📊 Marks
+Enter marks
+View marks
+🤖 Predictions (MAIN FEATURE)
+Show:
+Risk Level (Low / Medium / High)
+Reason (Low attendance etc
+
+👨‍🎓 STUDENT DASHBOARD
+🔹 Cards
+Attendance %
+Avg Marks
+Risk Level 🚨
+🔹 Sections
+Join Class
+View Subjects
+View Marks
+View Prediction
+Study Suggestions (later)
+🎯 4. UI FEATURES YOU MUST ADD
+✅ Sidebar toggle (☰ like image)
+✅ Back button everywhere
+✅ Cards UI
+✅ Tables (not plain text)
+
+✅ Colors:
+Green → Safe
+Yellow → Medium
+Red → Risk
+
+
+
+🧱 FINAL STRUCTURE (CLEAN)
+project/
+│
+├── app.py
+├── templates/
+│   ├── home.html
+│   ├── login.html
+│   ├── register.html
+│   ├── base.html
+│   ├── teacher_dashboard.html
+│   ├── student_dashboard.html
+│
+├── static/
+│   ├── style.css        ← for auth pages
+│   ├── dashboard.css    ← for dashboard
+│   ├── script.js
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
