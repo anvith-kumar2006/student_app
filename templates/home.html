@@ -1,14 +1,33 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Home</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Home</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
+
 <div class="container">
-<h1>AI Student Performance System</h1>
-<a href="/login">Login</a>
-<a href="/register">Register</a>
+    <div class="form-box">
+
+        <h2>Student Performance System</h2>
+
+        <p style="margin-bottom: 20px;">
+            Track student performance, manage classes, and analyze results efficiently.
+        </p>
+
+        <a href="/login">
+            <button>Login</button>
+        </a>
+
+        <br><br>
+
+        <a href="/register">
+            <button style="background:#28a745;">Register</button>
+        </a>
+
+    </div>
 </div>
+
 </body>
 </html>

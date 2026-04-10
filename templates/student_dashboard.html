@@ -1,43 +1,112 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
 
-{% block content %}
+<body>
 
-<h1>Student Dashboard</h1>
+<div class="main">
 
-<!-- Cards -->
-<div class="cards">
-    <div class="card blue">Attendance: --%</div>
-    <div class="card green">Performance: Good</div>
-    <div class="card red">Risk Level: Low</div>
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h2>Student Panel</h2>
+
+        <a href="#">Dashboard</a>
+        <a href="#" onclick="openModal('joinClassModal')">Join Class</a>
+        <a href="#classes">My Classes</a>
+        <a href="#marks">My Marks</a> <!-- NEW -->
+        <a href="/logout">Logout</a>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+        <h2>Welcome Student 👨‍🎓</h2>
+
+        <!-- CARDS -->
+        <div class="dashboard-cards">
+            <div class="card">
+                <h3>Joined Classes</h3>
+                <p>{{ classes|length }}</p>
+            </div>
+
+            <div class="card">
+                <h3>Total Subjects</h3>
+                <p>{{ subject_count }}</p>
+            </div>
+        </div>
+
+        <!-- CLASS LIST -->
+        <div class="section" id="classes">
+            <h3>Your Classes</h3>
+
+            <table>
+                <tr>
+                    <th>Class Name</th>
+                    <th>Class Code</th>
+                </tr>
+
+                {% for c in classes %}
+                <tr>
+                    <td>{{ c[0] }}</td>
+                    <td>{{ c[1] }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <!-- 🔥 MARKS SECTION (NEW FEATURE) -->
+        <div class="section" id="marks">
+            <h3>Your Marks</h3>
+
+            {% if marks %}
+            <table>
+                <tr>
+                    <th>Subject</th>
+                    <th>Marks</th>
+                </tr>
+
+                {% for m in marks %}
+                <tr>
+                    <td>{{ m[0] }}</td>
+                    <td>{{ m[1] }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% else %}
+            <p style="color:white;">No marks added yet.</p>
+            {% endif %}
+        </div>
+
+    </div>
+
 </div>
 
-<!-- Join Class -->
-<div class="section">
-    <h3>Join Class</h3>
-    <form method="POST" action="/join_class">
-        <input type="text" name="class_code" placeholder="Enter Class Code" required>
-        <button>Join Class</button>
-    </form>
+<!-- JOIN CLASS MODAL -->
+<div id="joinClassModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('joinClassModal')">&times;</span>
+
+        <h3>Join Class</h3>
+        <form method="POST" action="/join_class">
+            <input type="text" name="class_code" placeholder="Enter Class Code" required>
+            <button type="submit">Join</button>
+        </form>
+    </div>
 </div>
 
-<!-- Subjects -->
-<div class="section">
-    <h3>Your Subjects</h3>
-    <table>
-        <tr>
-            <th>Subject</th>
-            <th>Code</th>
-        </tr>
-        <tr>
-            <td colspan="2">No subjects added yet</td>
-        </tr>
-    </table>
-</div>
+<!-- JS -->
+<script>
+function openModal(id) {
+    document.getElementById(id).style.display = "flex";
+}
 
-<!-- Performance Section -->
-<div class="section">
-    <h3>Performance Overview</h3>
-    <p>Marks, attendance and AI prediction will appear here.</p>
-</div>
+function closeModal(id) {
+    document.getElementById(id).style.display = "none";
+}
+</script>
 
-{% endblock %}
+</body>
+</html>

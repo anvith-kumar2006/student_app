@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, session, flash
 import mysql.connector
 import random, string
 
@@ -66,35 +66,87 @@ def logout():
     session.clear()
     return redirect('/')
 
-# TEACHER DASHBOARD
+# ================= TEACHER DASHBOARD =================
 @app.route('/teacher')
 def teacher():
     if 'user_id' not in session:
         return redirect('/login')
 
-    cursor.execute("SELECT id, class_name FROM classrooms WHERE teacher_id=%s",(session['user_id'],))
+    teacher_id = session['user_id']
+
+    # Classes
+    cursor.execute("SELECT id, class_name FROM classrooms WHERE teacher_id=%s", (teacher_id,))
     classes = cursor.fetchall()
 
+    # Students (FIXED IDs)
     cursor.execute("""
-    SELECT u.name, u.email, c.class_name
+    SELECT s.user_id, u.name, u.email, c.class_name
     FROM students s
-    JOIN users u ON s.user_id=u.id
-    JOIN classrooms c ON s.class_id=c.id
-    WHERE c.teacher_id=%s
-    """,(session['user_id'],))
+    JOIN users u ON s.user_id = u.id
+    JOIN classrooms c ON s.class_id = c.id
+    WHERE c.teacher_id = %s
+    """, (teacher_id,))
     students = cursor.fetchall()
 
-    return render_template('teacher_dashboard.html', classes=classes, students=students)
+    # 🔥 Subjects (IMPORTANT FIX)
+    cursor.execute("""
+    SELECT id, subject_name FROM subjects
+    WHERE class_id IN (
+        SELECT id FROM classrooms WHERE teacher_id = %s
+    )
+    """, (teacher_id,))
+    subjects = cursor.fetchall()
 
-# STUDENT DASHBOARD
+    return render_template(
+        'teacher_dashboard.html',
+        classes=classes,
+        students=students,
+        subjects=subjects   # 🔥 REQUIRED
+    )
+
+# ================= STUDENT DASHBOARD =================
 @app.route('/student')
 def student():
     if 'user_id' not in session:
         return redirect('/login')
 
-    return render_template('student_dashboard.html')
+    user_id = session['user_id']
 
-# CREATE CLASS
+    # Classes
+    cursor.execute("""
+        SELECT c.class_name, c.class_code
+        FROM students s
+        JOIN classrooms c ON s.class_id = c.id
+        WHERE s.user_id = %s
+    """, (user_id,))
+    classes = cursor.fetchall()
+
+    # Subject count
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM subjects sub
+        JOIN students s ON sub.class_id = s.class_id
+        WHERE s.user_id = %s
+    """, (user_id,))
+    subject_count = cursor.fetchone()[0]
+
+    # Marks
+    cursor.execute("""
+        SELECT sub.subject_name, m.marks
+        FROM marks m
+        JOIN subjects sub ON m.subject_id = sub.id
+        WHERE m.student_id = %s
+    """, (user_id,))
+    marks = cursor.fetchall()
+
+    return render_template(
+        'student_dashboard.html',
+        classes=classes,
+        subject_count=subject_count,
+        marks=marks
+    )
+
+# ================= CREATE CLASS =================
 @app.route('/create_class', methods=['POST'])
 def create_class():
     code = generate_code()
@@ -106,10 +158,11 @@ def create_class():
     flash(f"Class Code: {code}")
     return redirect('/teacher')
 
-# ADD SUBJECT
+# ================= ADD SUBJECT =================
 @app.route('/add_subject', methods=['POST'])
 def add_subject():
     code = generate_code(5)
+
     cursor.execute("""
     INSERT INTO subjects (subject_name,subject_code,class_id,min_attendance,min_internal_marks,assignment_marks)
     VALUES (%s,%s,%s,%s,%s,%s)
@@ -121,23 +174,61 @@ def add_subject():
         request.form['min_marks'],
         request.form['assignment_marks']
     ))
+
     db.commit()
     flash(f"Subject Code: {code}")
     return redirect('/teacher')
 
-# JOIN CLASS
+# ================= JOIN CLASS =================
 @app.route('/join_class', methods=['POST'])
 def join_class():
-    cursor.execute("SELECT id FROM classrooms WHERE class_code=%s",(request.form['class_code'],))
+    cursor.execute("SELECT id FROM classrooms WHERE class_code=%s", (request.form['class_code'],))
     c = cursor.fetchone()
+
     if not c:
         return "Invalid code"
 
-    cursor.execute("INSERT INTO students (user_id,class_id) VALUES (%s,%s)",
-                   (session['user_id'],c[0]))
+    class_id = c[0]
+
+    # Prevent duplicate join
+    try:
+        cursor.execute(
+            "INSERT INTO students (user_id,class_id) VALUES (%s,%s)",
+            (session['user_id'], class_id)
+        )
+        db.commit()
+    except:
+        return redirect('/student')
+
+    # Assign subjects automatically
+    cursor.execute("SELECT id FROM subjects WHERE class_id=%s", (class_id,))
+    subjects = cursor.fetchall()
+
+    for sub in subjects:
+        cursor.execute("""
+            INSERT IGNORE INTO student_subjects (student_id, subject_id)
+            VALUES (%s,%s)
+        """, (session['user_id'], sub[0]))
+
     db.commit()
+
     return redirect('/student')
 
-# RUN
+# ================= ADD MARKS =================
+@app.route('/add_marks', methods=['POST'])
+def add_marks():
+    student_id = request.form['student_id']
+    subject_id = request.form['subject_id']
+    marks = request.form['marks']
+
+    cursor.execute("""
+        INSERT INTO marks (student_id, subject_id, marks)
+        VALUES (%s,%s,%s)
+    """, (student_id, subject_id, marks))
+
+    db.commit()
+    return redirect('/teacher')
+
+# ================= RUN =================
 if __name__ == "__main__":
     app.run(debug=True)

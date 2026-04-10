@@ -1,75 +1,148 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teacher Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
 
-{% block content %}
+<body>
 
-<h1>Teacher Dashboard</h1>
+<div class="main">
 
-<!-- Flash Messages -->
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    {% for msg in messages %}
-      <div class="alert">{{ msg }}</div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h2>Teacher Panel</h2>
 
-<!-- Dashboard Cards -->
-<div class="cards">
-    <div class="card blue">Total Classes: {{ classes|length }}</div>
-    <div class="card green">Students: {{ students|length }}</div>
-    <div class="card red">At Risk: --</div>
+        <a href="#">Dashboard</a>
+        <a href="#" onclick="openModal('createClassModal')">Create Class</a>
+        <a href="#" onclick="openModal('addSubjectModal')">Add Subject</a>
+        <a href="#" onclick="openModal('addMarksModal')">Add Marks</a>
+        <a href="#students">Students</a>
+        <a href="/logout">Logout</a>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+        <h2>Welcome Teacher 👨‍🏫</h2>
+
+        <!-- DASHBOARD CARDS -->
+        <div class="dashboard-cards">
+            <div class="card">
+                <h3>Total Classes</h3>
+                <p>{{ classes|length }}</p>
+            </div>
+
+            <div class="card">
+                <h3>Total Students</h3>
+                <p>{{ students|length }}</p>
+            </div>
+        </div>
+
+        <!-- STUDENTS TABLE -->
+        <div class="section" id="students">
+            <h3>Students</h3>
+
+            <table>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Class</th>
+                </tr>
+
+                {% for s in students %}
+                <tr>
+                    <td>{{ s[1] }}</td>
+                    <td>{{ s[2] }}</td>
+                    <td>{{ s[3] }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+    </div>
+
 </div>
 
-<!-- Create Class -->
-<div class="section">
-    <h3>Create Class</h3>
-    <form method="POST" action="/create_class">
-        <input type="text" name="class_name" placeholder="Class Name" required>
-        <button>Create Class</button>
-    </form>
+<!-- ================= CREATE CLASS MODAL ================= -->
+<div id="createClassModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('createClassModal')">&times;</span>
+
+        <h3>Create Class</h3>
+        <form method="POST" action="/create_class">
+            <input type="text" name="class_name" placeholder="Class Name" required>
+            <button type="submit">Create Class</button>
+        </form>
+    </div>
 </div>
 
-<!-- Add Subject -->
-<div class="section">
-    <h3>Add Subject</h3>
-    <form method="POST" action="/add_subject">
+<!-- ================= ADD SUBJECT MODAL ================= -->
+<div id="addSubjectModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('addSubjectModal')">&times;</span>
 
-        <input type="text" name="subject_name" placeholder="Subject Name" required>
+        <h3>Add Subject</h3>
+        <form method="POST" action="/add_subject">
 
-        <select name="class_id" required>
-            <option value="">Select Class</option>
-            {% for c in classes %}
-            <option value="{{ c[0] }}">{{ c[1] }}</option>
-            {% endfor %}
-        </select>
+            <input type="text" name="subject_name" placeholder="Subject Name" required>
 
-        <input type="number" name="min_attendance" placeholder="Min Attendance" required>
-        <input type="number" name="min_marks" placeholder="Min Marks" required>
-        <input type="number" name="assignment_marks" placeholder="Assignment Marks" required>
+            <select name="class_id">
+                {% for c in classes %}
+                <option value="{{ c[0] }}">{{ c[1] }}</option>
+                {% endfor %}
+            </select>
 
-        <button>Add Subject</button>
-    </form>
+            <input type="number" name="min_attendance" placeholder="Min Attendance %" required>
+            <input type="number" name="min_marks" placeholder="Min Marks" required>
+            <input type="number" name="assignment_marks" placeholder="Assignment Marks" required>
+
+            <button type="submit">Add Subject</button>
+        </form>
+    </div>
 </div>
 
-<!-- Students Table -->
-<div class="section">
-    <h3>Students</h3>
+<!-- ================= ADD MARKS MODAL (FIXED) ================= -->
+<div id="addMarksModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('addMarksModal')">&times;</span>
 
-    <table>
-        <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Class</th>
-        </tr>
+        <h3>Add Marks</h3>
 
-        {% for s in students %}
-        <tr>
-            <td>{{ s[0] }}</td>
-            <td>{{ s[1] }}</td>
-            <td>{{ s[2] }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+        <form method="POST" action="/add_marks">
+
+            <!-- STUDENT -->
+            <select name="student_id" required>
+                {% for s in students %}
+                <option value="{{ s[0] }}">{{ s[1] }} ({{ s[2] }})</option>
+                {% endfor %}
+            </select>
+
+            <!-- SUBJECT -->
+            <select name="subject_id" required>
+                {% for sub in subjects %}
+                <option value="{{ sub[0] }}">{{ sub[1] }}</option>
+                {% endfor %}
+            </select>
+
+            <input type="number" name="marks" placeholder="Enter Marks" required>
+
+            <button type="submit">Save Marks</button>
+
+        </form>
+    </div>
 </div>
 
-{% endblock %}
+<!-- ================= JAVASCRIPT ================= -->
+<script>
+function openModal(id) {
+    document.getElementById(id).style.display = "flex";
+}
+
+function closeModal(id) {
+    document.getElementById(id).style.display = "none";
+}
+</script>
+
+</body>
+</html>
