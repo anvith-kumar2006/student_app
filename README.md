@@ -203,3 +203,39 @@ Your project will have:
 ✅ 📊 Performance graph
 ✅ Clean UI
 ✅ GitHub repo
+
+
+### on 10/04/26
+🎯 WHAT YOU WANT TO BUILD
+👨‍🏫 Teacher:
+Add marks for students
+Assign marks per subject
+👨‍🎓 Student:
+Automatically get subjects
+View their marks
+🧠 IMPORTANT DESIGN (VERY CLEAN APPROACH)
+
+We’ll follow real-world logic:
+
+✅ FLOW
+1. Teacher creates:
+Class ✅
+Subjects ✅
+2. Student joins class:
+
+➡️ Automatically gets all subjects of that class
+
+3. Teacher enters marks:
+
+➡️ Select:
+
+Student
+Subject
+Enter marks
+
+4. Student dashboard:
+
+➡️ See:
+
+Subject-wise marks
+(Later → graphs 📊)
