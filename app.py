@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, session, flash
 import mysql.connector
 import random, string
+import pandas as pd
 
 app = Flask(__name__)
 app.secret_key = "secret123"
@@ -16,12 +17,12 @@ cursor = db.cursor()
 def generate_code(length=6):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
-# HOME
+# ================= HOME =================
 @app.route('/')
 def home():
     return render_template('home.html')
 
-# REGISTER
+# ================= REGISTER =================
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -41,7 +42,7 @@ def register():
 
     return render_template('register.html')
 
-# LOGIN
+# ================= LOGIN =================
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
@@ -54,13 +55,17 @@ def login():
         if user:
             session['user_id'] = user[0]
             session['role'] = user[3]
-            return redirect('/student' if user[3]=='student' else '/teacher')
+
+            if user[3] == 'student':
+                return redirect('/student')
+            else:
+                return redirect('/teacher')
 
         return "Invalid credentials"
 
     return render_template('login.html')
 
-# LOGOUT
+# ================= LOGOUT =================
 @app.route('/logout')
 def logout():
     session.clear()
@@ -69,7 +74,7 @@ def logout():
 # ================= TEACHER DASHBOARD =================
 @app.route('/teacher')
 def teacher():
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'teacher':
         return redirect('/login')
 
     teacher_id = session['user_id']
@@ -78,36 +83,77 @@ def teacher():
     cursor.execute("SELECT id, class_name FROM classrooms WHERE teacher_id=%s", (teacher_id,))
     classes = cursor.fetchall()
 
-    # Students (FIXED IDs)
+    # Students
     cursor.execute("""
-    SELECT s.user_id, u.name, u.email, c.class_name
-    FROM students s
-    JOIN users u ON s.user_id = u.id
-    JOIN classrooms c ON s.class_id = c.id
-    WHERE c.teacher_id = %s
+        SELECT s.user_id, u.name, u.email, c.class_name
+        FROM students s
+        JOIN users u ON s.user_id = u.id
+        JOIN classrooms c ON s.class_id = c.id
+        WHERE c.teacher_id = %s AND u.role = 'student'
     """, (teacher_id,))
     students = cursor.fetchall()
 
-    # 🔥 Subjects (IMPORTANT FIX)
+    # Subjects
     cursor.execute("""
-    SELECT id, subject_name FROM subjects
-    WHERE class_id IN (
-        SELECT id FROM classrooms WHERE teacher_id = %s
-    )
+        SELECT id, subject_name FROM subjects
+        WHERE class_id IN (
+            SELECT id FROM classrooms WHERE teacher_id = %s
+        )
     """, (teacher_id,))
     subjects = cursor.fetchall()
+
+    # ================= CLASS GRAPH =================
+    cursor.execute("""
+        SELECT sub.subject_name, AVG(m.total_marks)
+        FROM marks m
+        JOIN subjects sub ON m.subject_id = sub.id
+        JOIN classrooms c ON sub.class_id = c.id
+        WHERE c.teacher_id = %s
+        GROUP BY sub.subject_name
+    """, (teacher_id,))
+    graph_data = cursor.fetchall()
+
+    if not graph_data:
+        graph_subjects = []
+        graph_avg = []
+    else:
+        graph_subjects = [g[0] for g in graph_data]
+        graph_avg = [float(g[1]) for g in graph_data]
+
+    # ================= STUDENT GRAPH (FIXED) =================
+    cursor.execute("""
+        SELECT u.name, AVG(m.total_marks)
+        FROM marks m
+        JOIN users u ON m.student_id = u.id
+        WHERE u.role = 'student'
+        GROUP BY u.name
+    """)
+    student_graph = cursor.fetchall()
+
+    print("DEBUG STUDENT GRAPH:", student_graph)  # 🔥 DEBUG
+
+    if not student_graph:
+        student_names = []
+        student_avg = []
+    else:
+        student_names = [s[0] for s in student_graph]
+        student_avg = [float(s[1]) for s in student_graph]
 
     return render_template(
         'teacher_dashboard.html',
         classes=classes,
         students=students,
-        subjects=subjects   # 🔥 REQUIRED
+        subjects=subjects,
+        graph_subjects=graph_subjects,
+        graph_avg=graph_avg,
+        student_names=student_names,
+        student_avg=student_avg
     )
 
 # ================= STUDENT DASHBOARD =================
 @app.route('/student')
 def student():
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'student':
         return redirect('/login')
 
     user_id = session['user_id']
@@ -132,41 +178,58 @@ def student():
 
     # Marks
     cursor.execute("""
-        SELECT sub.subject_name, m.marks
+        SELECT sub.subject_name, 
+               m.internal_marks,
+               m.assignment_marks,
+               m.attendance,
+               m.total_marks
         FROM marks m
         JOIN subjects sub ON m.subject_id = sub.id
         WHERE m.student_id = %s
     """, (user_id,))
     marks = cursor.fetchall()
 
+    subjects = [m[0] for m in marks]
+    totals = [m[4] for m in marks]
+
     return render_template(
         'student_dashboard.html',
         classes=classes,
         subject_count=subject_count,
-        marks=marks
+        marks=marks,
+        subjects=subjects,
+        totals=totals
     )
 
 # ================= CREATE CLASS =================
 @app.route('/create_class', methods=['POST'])
 def create_class():
+    if session.get('role') != 'teacher':
+        return redirect('/login')
+
     code = generate_code()
+
     cursor.execute(
         "INSERT INTO classrooms (class_name,class_code,teacher_id) VALUES (%s,%s,%s)",
         (request.form['class_name'], code, session['user_id'])
     )
     db.commit()
+
     flash(f"Class Code: {code}")
     return redirect('/teacher')
 
 # ================= ADD SUBJECT =================
 @app.route('/add_subject', methods=['POST'])
 def add_subject():
+    if session.get('role') != 'teacher':
+        return redirect('/login')
+
     code = generate_code(5)
 
     cursor.execute("""
-    INSERT INTO subjects (subject_name,subject_code,class_id,min_attendance,min_internal_marks,assignment_marks)
-    VALUES (%s,%s,%s,%s,%s,%s)
-    """,(
+        INSERT INTO subjects (subject_name,subject_code,class_id,min_attendance,min_internal_marks,assignment_marks)
+        VALUES (%s,%s,%s,%s,%s,%s)
+    """, (
         request.form['subject_name'],
         code,
         int(request.form['class_id']),
@@ -177,11 +240,15 @@ def add_subject():
 
     db.commit()
     flash(f"Subject Code: {code}")
+
     return redirect('/teacher')
 
 # ================= JOIN CLASS =================
 @app.route('/join_class', methods=['POST'])
 def join_class():
+    if session.get('role') != 'student':
+        return redirect('/login')
+
     cursor.execute("SELECT id FROM classrooms WHERE class_code=%s", (request.form['class_code'],))
     c = cursor.fetchone()
 
@@ -190,7 +257,6 @@ def join_class():
 
     class_id = c[0]
 
-    # Prevent duplicate join
     try:
         cursor.execute(
             "INSERT INTO students (user_id,class_id) VALUES (%s,%s)",
@@ -200,7 +266,6 @@ def join_class():
     except:
         return redirect('/student')
 
-    # Assign subjects automatically
     cursor.execute("SELECT id FROM subjects WHERE class_id=%s", (class_id,))
     subjects = cursor.fetchall()
 
@@ -217,6 +282,9 @@ def join_class():
 # ================= ADD MARKS =================
 @app.route('/add_marks', methods=['POST'])
 def add_marks():
+    if session.get('role') != 'teacher':
+        return redirect('/login')
+
     student_id = request.form['student_id']
     subject_id = request.form['subject_id']
     marks = request.form['marks']
@@ -227,6 +295,75 @@ def add_marks():
     """, (student_id, subject_id, marks))
 
     db.commit()
+    return redirect('/teacher')
+
+# ================= BULK UPLOAD =================
+@app.route('/upload_marks', methods=['POST'])
+def upload_marks():
+    if 'user_id' not in session or session.get('role') != 'teacher':
+        return redirect('/login')
+
+    file = request.files['file']
+    subject_id = request.form['subject_id']
+
+    if not file:
+        return "No file uploaded"
+
+    filename = file.filename
+
+    try:
+        if filename.endswith('.csv'):
+            df = pd.read_csv(file)
+        elif filename.endswith('.xlsx'):
+            df = pd.read_excel(file)
+        else:
+            return "Only CSV and Excel allowed"
+
+        df.columns = df.columns.str.strip().str.lower()
+
+        required = ['email', 'internal_marks', 'assignment_marks', 'attendance']
+        for col in required:
+            if col not in df.columns:
+                return f"Missing column: {col}"
+
+        for _, row in df.iterrows():
+            email = str(row['email']).strip()
+            internal = int(row['internal_marks'])
+            assignment = int(row['assignment_marks'])
+            attendance = int(row['attendance'])
+
+            total = internal + assignment
+
+            cursor.execute(
+                "SELECT id FROM users WHERE email=%s AND role='student'",
+                (email,)
+            )
+            student = cursor.fetchone()
+
+            if student:
+                student_id = student[0]
+
+                cursor.execute("""
+                    INSERT INTO marks 
+                    (student_id, subject_id, internal_marks, assignment_marks, attendance, total_marks)
+                    VALUES (%s,%s,%s,%s,%s,%s)
+                    ON DUPLICATE KEY UPDATE
+                        internal_marks=%s,
+                        assignment_marks=%s,
+                        attendance=%s,
+                        total_marks=%s
+                """, (
+                    student_id, subject_id,
+                    internal, assignment, attendance, total,
+                    internal, assignment, attendance, total
+                ))
+
+        db.commit()
+        flash("File uploaded successfully!")
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
     return redirect('/teacher')
 
 # ================= RUN =================

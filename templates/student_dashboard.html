@@ -3,6 +3,9 @@
 <head>
     <title>Student Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -16,7 +19,8 @@
         <a href="#">Dashboard</a>
         <a href="#" onclick="openModal('joinClassModal')">Join Class</a>
         <a href="#classes">My Classes</a>
-        <a href="#marks">My Marks</a> <!-- NEW -->
+        <a href="#marks">My Performance</a>
+        <a href="#graph">Performance Graph</a>
         <a href="/logout">Logout</a>
     </div>
 
@@ -38,14 +42,14 @@
             </div>
         </div>
 
-        <!-- CLASS LIST -->
+        <!-- CLASSES -->
         <div class="section" id="classes">
             <h3>Your Classes</h3>
 
             <table>
                 <tr>
                     <th>Class Name</th>
-                    <th>Class Code</th>
+                    <th>Code</th>
                 </tr>
 
                 {% for c in classes %}
@@ -57,26 +61,43 @@
             </table>
         </div>
 
-        <!-- 🔥 MARKS SECTION (NEW FEATURE) -->
+        <!-- MARKS -->
         <div class="section" id="marks">
-            <h3>Your Marks</h3>
+            <h3>Your Performance</h3>
 
             {% if marks %}
             <table>
                 <tr>
                     <th>Subject</th>
-                    <th>Marks</th>
+                    <th>Internal</th>
+                    <th>Assignment</th>
+                    <th>Attendance</th>
+                    <th>Total</th>
                 </tr>
 
                 {% for m in marks %}
                 <tr>
                     <td>{{ m[0] }}</td>
                     <td>{{ m[1] }}</td>
+                    <td>{{ m[2] }}</td>
+                    <td>{{ m[3] }}%</td>
+                    <td>{{ m[4] }}</td>
                 </tr>
                 {% endfor %}
             </table>
             {% else %}
-            <p style="color:white;">No marks added yet.</p>
+            <p style="color:white;">No performance data available.</p>
+            {% endif %}
+        </div>
+
+        <!-- GRAPH -->
+        <div class="section" id="graph">
+            <h3>Performance Graph 📊</h3>
+
+            {% if marks %}
+            <canvas id="marksChart"></canvas>
+            {% else %}
+            <p style="color:white;">No data for graph.</p>
             {% endif %}
         </div>
 
@@ -102,10 +123,43 @@
 function openModal(id) {
     document.getElementById(id).style.display = "flex";
 }
-
 function closeModal(id) {
     document.getElementById(id).style.display = "none";
 }
+</script>
+
+<!-- GRAPH SCRIPT (FIXED) -->
+<script>
+    const subjects = JSON.parse('{{ subjects | tojson | safe }}');
+    const totals = JSON.parse('{{ totals | tojson | safe }}');
+
+    if (subjects.length > 0) {
+        const ctx = document.getElementById('marksChart').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: subjects,
+                datasets: [{
+                    label: 'Total Marks',
+                    data: totals,
+                    borderWidth: 1,
+                    backgroundColor: totals.map(t =>
+                        t >= 40 ? 'green' :
+                        t >= 25 ? 'orange' : 'red'
+                    )
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
 </script>
 
 </body>
