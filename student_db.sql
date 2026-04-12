@@ -9,6 +9,8 @@ CREATE TABLE users (
     password VARCHAR(100)
 );
 
+select*from users;
+
 CREATE TABLE classrooms (
     id INT AUTO_INCREMENT PRIMARY KEY,
     class_name VARCHAR(100),
@@ -26,7 +28,7 @@ CREATE TABLE subjects (
     min_internal_marks INT,
     assignment_marks INT
 );
-
+select *from subjects;
 CREATE TABLE students (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
@@ -40,3 +42,51 @@ CREATE TABLE student_subjects (
     subject_id INT,
     UNIQUE(student_id, subject_id)
 );
+
+select* from student_subjects;
+CREATE TABLE marks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT,
+    subject_id INT,
+    marks INT
+);
+
+select* from users;
+select* from classrooms;
+
+ALTER TABLE marks 
+ADD COLUMN internal_marks INT,
+ADD COLUMN assignment_marks INT,
+ADD COLUMN attendance INT,
+ADD COLUMN total_marks INT;
+
+ALTER TABLE marks 
+ADD UNIQUE KEY unique_entry (student_id, subject_id);
+
+SELECT email FROM users WHERE role='student';
+
+SELECT id FROM users WHERE email = 'Nayana.ece@skit.org.in';
+
+DELETE FROM marks WHERE id = 8;
+
+DESCRIBE users;
+
+ALTER TABLE classrooms 
+ADD FOREIGN KEY (teacher_id) REFERENCES users(id);
+
+ALTER TABLE students 
+ADD FOREIGN KEY (user_id) REFERENCES users(id),
+ADD FOREIGN KEY (class_id) REFERENCES classrooms(id);
+
+ALTER TABLE subjects 
+ADD FOREIGN KEY (class_id) REFERENCES classrooms(id);
+
+ALTER TABLE student_subjects 
+ADD FOREIGN KEY (student_id) REFERENCES users(id),
+ADD FOREIGN KEY (subject_id) REFERENCES subjects(id);
+
+ALTER TABLE marks 
+ADD FOREIGN KEY (student_id) REFERENCES users(id),
+ADD FOREIGN KEY (subject_id) REFERENCES subjects(id);
+
+

@@ -18,9 +18,12 @@
 
         <a href="#">Dashboard</a>
         <a href="#" onclick="openModal('joinClassModal')">Join Class</a>
-        <a href="#classes">My Classes</a>
-        <a href="#marks">My Performance</a>
-        <a href="#graph">Performance Graph</a>
+
+        <!-- MODAL ACCESS -->
+        <a href="#" onclick="openModal('classesModal')">My Classes</a>
+        <a href="#" onclick="openModal('marksModal')">My Performance</a>
+        <a href="#" onclick="openModal('graphModal')">Performance Graph</a>
+
         <a href="/logout">Logout</a>
     </div>
 
@@ -73,6 +76,7 @@
                     <th>Assignment</th>
                     <th>Attendance</th>
                     <th>Total</th>
+                    <th>Risk</th>
                 </tr>
 
                 {% for m in marks %}
@@ -82,6 +86,7 @@
                     <td>{{ m[2] }}</td>
                     <td>{{ m[3] }}%</td>
                     <td>{{ m[4] }}</td>
+                    <td><span class="{{ m[5]|lower }}">{{ m[5] }}</span></td>
                 </tr>
                 {% endfor %}
             </table>
@@ -90,22 +95,13 @@
             {% endif %}
         </div>
 
-        <!-- GRAPH -->
-        <div class="section" id="graph">
-            <h3>Performance Graph 📊</h3>
-
-            {% if marks %}
-            <canvas id="marksChart"></canvas>
-            {% else %}
-            <p style="color:white;">No data for graph.</p>
-            {% endif %}
-        </div>
-
     </div>
 
 </div>
 
-<!-- JOIN CLASS MODAL -->
+<!-- ================= MODALS ================= -->
+
+<!-- JOIN CLASS -->
 <div id="joinClassModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeModal('joinClassModal')">&times;</span>
@@ -118,48 +114,121 @@
     </div>
 </div>
 
-<!-- JS -->
+<!-- CLASSES MODAL -->
+<div id="classesModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('classesModal')">&times;</span>
+
+        <h3>Your Classes</h3>
+
+        <table>
+            <tr>
+                <th>Class Name</th>
+                <th>Code</th>
+            </tr>
+
+            {% for c in classes %}
+            <tr>
+                <td>{{ c[0] }}</td>
+                <td>{{ c[1] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+
+<!-- MARKS MODAL -->
+<div id="marksModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('marksModal')">&times;</span>
+
+        <h3>Your Performance</h3>
+
+        {% if marks %}
+        <table>
+            <tr>
+                <th>Subject</th>
+                <th>Internal</th>
+                <th>Assignment</th>
+                <th>Attendance</th>
+                <th>Total</th>
+                <th>Risk</th>
+            </tr>
+
+            {% for m in marks %}
+            <tr>
+                <td>{{ m[0] }}</td>
+                <td>{{ m[1] }}</td>
+                <td>{{ m[2] }}</td>
+                <td>{{ m[3] }}%</td>
+                <td>{{ m[4] }}</td>
+                <td><span class="{{ m[5]|lower }}">{{ m[5] }}</span></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>No data available</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- GRAPH MODAL -->
+<div id="graphModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('graphModal')">&times;</span>
+
+        <h3>Performance Graph 📊</h3>
+        <canvas id="modalChart"></canvas>
+    </div>
+</div>
+
+<!-- ================= JS ================= -->
 <script>
 function openModal(id) {
     document.getElementById(id).style.display = "flex";
+
+    if (id === 'graphModal') {
+        setTimeout(renderModalChart, 200);
+    }
 }
+
 function closeModal(id) {
     document.getElementById(id).style.display = "none";
 }
 </script>
 
-<!-- GRAPH SCRIPT (FIXED) -->
+<!-- ================= MODAL GRAPH ================= -->
 <script>
-    const subjects = JSON.parse('{{ subjects | tojson | safe }}');
-    const totals = JSON.parse('{{ totals | tojson | safe }}');
+const subjects = JSON.parse('{{ subjects | tojson | safe }}');
+const totals = JSON.parse('{{ totals | tojson | safe }}');
 
-    if (subjects.length > 0) {
-        const ctx = document.getElementById('marksChart').getContext('2d');
+let modalChart = null;
 
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: subjects,
-                datasets: [{
-                    label: 'Total Marks',
-                    data: totals,
-                    borderWidth: 1,
-                    backgroundColor: totals.map(t =>
-                        t >= 40 ? 'green' :
-                        t >= 25 ? 'orange' : 'red'
-                    )
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
+function renderModalChart() {
+    if (modalChart) modalChart.destroy();
+
+    const ctx = document.getElementById('modalChart').getContext('2d');
+
+    modalChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: subjects,
+            datasets: [{
+                label: 'Total Marks',
+                data: totals,
+                backgroundColor: 'blue'
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
                 }
             }
-        });
-    }
+        }
+    });
+}
 </script>
 
 </body>

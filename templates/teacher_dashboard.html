@@ -22,6 +22,7 @@
         <a href="#" onclick="openModal('classGraphModal')">Class Analytics</a>
         <a href="#" onclick="openModal('studentGraphModal')">Student Analytics</a>
         <a href="#students">Students</a>
+        <a href="#risk">At-Risk Students</a> <!-- ✅ NEW -->
         <a href="/logout">Logout</a>
     </div>
 
@@ -30,6 +31,7 @@
 
         <h2>Welcome Teacher 👨‍🏫</h2>
 
+        <!-- CARDS -->
         <div class="dashboard-cards">
             <div class="card">
                 <h3>Total Classes</h3>
@@ -61,6 +63,31 @@
                 </tr>
                 {% endfor %}
             </table>
+        </div>
+
+        <!-- ================= AI RISK SECTION ================= -->
+        <div class="section" id="risk">
+            <h3>🚨 At Risk Students</h3>
+
+            {% if risky_students %}
+            <table>
+                <tr>
+                    <th>Name</th>
+                    <th>Internal Marks</th>
+                    <th>Attendance</th>
+                </tr>
+
+                {% for r in risky_students %}
+                <tr>
+                    <td>{{ r[0] }}</td>
+                    <td>{{ r[1] }}</td>
+                    <td>{{ r[2] }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% else %}
+            <p style="color: white;">No risky students 🎉</p>
+            {% endif %}
         </div>
 
     </div>
@@ -96,9 +123,9 @@
                 {% endfor %}
             </select>
 
-            <input type="number" name="min_attendance" required>
-            <input type="number" name="min_marks" required>
-            <input type="number" name="assignment_marks" required>
+            <input type="number" name="min_attendance" placeholder="Min Attendance %" required>
+            <input type="number" name="min_marks" placeholder="Min Internal Marks" required>
+            <input type="number" name="assignment_marks" placeholder="Min Assignment Marks" required>
 
             <button>Add</button>
         </form>
@@ -166,7 +193,7 @@
     </div>
 </div>
 
-<!-- JS -->
+<!-- ONLY CHANGE IS INSIDE JS BELOW -->
 <script>
 let classChart = null;
 let studentChart = null;
@@ -204,6 +231,16 @@ function renderClassChart() {
                 data: avg,
                 backgroundColor: 'blue'
             }]
+        },
+
+        // ✅ ADDED THIS BLOCK ONLY
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
         }
     });
 }
@@ -229,7 +266,15 @@ function renderStudentChart() {
                 )
             }]
         },
+
+        // ✅ UPDATED EXISTING OPTIONS (SAFE)
         options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            },
             plugins: { legend: { display: false } }
         }
     });

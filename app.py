@@ -17,10 +17,31 @@ cursor = db.cursor()
 def generate_code(length=6):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
+
+# ================= AI RISK FUNCTION =================
+def calculate_risk(internal, assignment, attendance, min_internal, min_assignment, min_attendance):
+
+    internal = internal or 0
+    assignment = assignment or 0
+    attendance = attendance or 0
+
+    min_internal = min_internal or 0
+    min_assignment = min_assignment or 0
+    min_attendance = min_attendance or 0
+
+    if internal >= min_internal and assignment >= min_assignment and attendance >= min_attendance:
+        return "Good"
+    elif internal >= (0.7 * min_internal) and attendance >= (0.7 * min_attendance):
+        return "Warning"
+    else:
+        return "At-Risk"
+
+
 # ================= HOME =================
 @app.route('/')
 def home():
     return render_template('home.html')
+
 
 # ================= REGISTER =================
 @app.route('/register', methods=['GET', 'POST'])
@@ -41,6 +62,7 @@ def register():
         return redirect('/login')
 
     return render_template('register.html')
+
 
 # ================= LOGIN =================
 @app.route('/login', methods=['GET','POST'])
@@ -65,11 +87,13 @@ def login():
 
     return render_template('login.html')
 
+
 # ================= LOGOUT =================
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/')
+
 
 # ================= TEACHER DASHBOARD =================
 @app.route('/teacher')
@@ -79,21 +103,23 @@ def teacher():
 
     teacher_id = session['user_id']
 
-    # Classes
     cursor.execute("SELECT id, class_name FROM classrooms WHERE teacher_id=%s", (teacher_id,))
     classes = cursor.fetchall()
 
-    # Students
     cursor.execute("""
-        SELECT s.user_id, u.name, u.email, c.class_name
-        FROM students s
-        JOIN users u ON s.user_id = u.id
-        JOIN classrooms c ON s.class_id = c.id
-        WHERE c.teacher_id = %s AND u.role = 'student'
-    """, (teacher_id,))
+        SELECT DISTINCT u.id, u.name, u.email,
+               COALESCE(c.class_name, c2.class_name) AS class_name
+        FROM users u
+        LEFT JOIN students s ON u.id = s.user_id
+        LEFT JOIN classrooms c ON s.class_id = c.id
+        LEFT JOIN student_subjects ss ON u.id = ss.student_id
+        LEFT JOIN subjects sub ON ss.subject_id = sub.id
+        LEFT JOIN classrooms c2 ON sub.class_id = c2.id
+        WHERE u.role = 'student'
+        AND (c.teacher_id = %s OR c2.teacher_id = %s)
+    """, (teacher_id, teacher_id))
     students = cursor.fetchall()
 
-    # Subjects
     cursor.execute("""
         SELECT id, subject_name FROM subjects
         WHERE class_id IN (
@@ -102,7 +128,6 @@ def teacher():
     """, (teacher_id,))
     subjects = cursor.fetchall()
 
-    # ================= CLASS GRAPH =================
     cursor.execute("""
         SELECT sub.subject_name, AVG(m.total_marks)
         FROM marks m
@@ -113,31 +138,42 @@ def teacher():
     """, (teacher_id,))
     graph_data = cursor.fetchall()
 
-    if not graph_data:
-        graph_subjects = []
-        graph_avg = []
-    else:
-        graph_subjects = [g[0] for g in graph_data]
-        graph_avg = [float(g[1]) for g in graph_data]
+    graph_subjects = [g[0] for g in graph_data] if graph_data else []
+    graph_avg = [min(100, float(g[1])) for g in graph_data] if graph_data else []
 
-    # ================= STUDENT GRAPH (FIXED) =================
     cursor.execute("""
         SELECT u.name, AVG(m.total_marks)
         FROM marks m
         JOIN users u ON m.student_id = u.id
-        WHERE u.role = 'student'
+        JOIN subjects sub ON m.subject_id = sub.id
+        JOIN classrooms c ON sub.class_id = c.id
+        WHERE c.teacher_id = %s
         GROUP BY u.name
-    """)
+    """, (teacher_id,))
     student_graph = cursor.fetchall()
 
-    print("DEBUG STUDENT GRAPH:", student_graph)  # 🔥 DEBUG
+    student_names = [s[0] for s in student_graph] if student_graph else []
+    student_avg = [min(100, float(s[1])) for s in student_graph] if student_graph else []
 
-    if not student_graph:
-        student_names = []
-        student_avg = []
-    else:
-        student_names = [s[0] for s in student_graph]
-        student_avg = [float(s[1]) for s in student_graph]
+    cursor.execute("""
+        SELECT u.name, m.internal_marks, m.assignment_marks, m.attendance,
+               sub.min_internal_marks, sub.assignment_marks, sub.min_attendance
+        FROM marks m
+        JOIN users u ON m.student_id = u.id
+        JOIN subjects sub ON m.subject_id = sub.id
+        JOIN classrooms c ON sub.class_id = c.id
+        WHERE c.teacher_id = %s
+    """, (teacher_id,))
+
+    risk_data = cursor.fetchall()
+    risky_students = []
+
+    for r in risk_data:
+        name, internal, assignment, attendance, min_i, min_a, min_att = r
+        risk = calculate_risk(internal, assignment, attendance, min_i, min_a, min_att)
+
+        if risk == "At-Risk":
+            risky_students.append((name, internal or 0, attendance or 0))
 
     return render_template(
         'teacher_dashboard.html',
@@ -147,8 +183,10 @@ def teacher():
         graph_subjects=graph_subjects,
         graph_avg=graph_avg,
         student_names=student_names,
-        student_avg=student_avg
+        student_avg=student_avg,
+        risky_students=risky_students
     )
+
 
 # ================= STUDENT DASHBOARD =================
 @app.route('/student')
@@ -158,39 +196,53 @@ def student():
 
     user_id = session['user_id']
 
-    # Classes
+    # ✅ FIXED CLASSES
     cursor.execute("""
-        SELECT c.class_name, c.class_code
-        FROM students s
-        JOIN classrooms c ON s.class_id = c.id
-        WHERE s.user_id = %s
+        SELECT DISTINCT c.class_name, c.class_code
+        FROM student_subjects ss
+        JOIN subjects sub ON ss.subject_id = sub.id
+        JOIN classrooms c ON sub.class_id = c.id
+        WHERE ss.student_id = %s
     """, (user_id,))
     classes = cursor.fetchall()
 
-    # Subject count
+    # ✅ FIXED SUBJECT COUNT
     cursor.execute("""
-        SELECT COUNT(*)
-        FROM subjects sub
-        JOIN students s ON sub.class_id = s.class_id
-        WHERE s.user_id = %s
+        SELECT COUNT(DISTINCT subject_id)
+        FROM student_subjects
+        WHERE student_id = %s
     """, (user_id,))
     subject_count = cursor.fetchone()[0]
 
-    # Marks
     cursor.execute("""
         SELECT sub.subject_name, 
                m.internal_marks,
                m.assignment_marks,
                m.attendance,
-               m.total_marks
+               m.total_marks,
+               sub.min_internal_marks,
+               sub.assignment_marks,
+               sub.min_attendance
         FROM marks m
         JOIN subjects sub ON m.subject_id = sub.id
         WHERE m.student_id = %s
     """, (user_id,))
-    marks = cursor.fetchall()
 
-    subjects = [m[0] for m in marks]
-    totals = [m[4] for m in marks]
+    data = cursor.fetchall()
+
+    marks = []
+    subjects = []
+    totals = []
+
+    for m in data:
+        subject, internal, assignment, attendance, total, min_i, min_a, min_att = m
+
+        total = min(100, total or 0)
+        risk = calculate_risk(internal, assignment, attendance, min_i, min_a, min_att)
+
+        marks.append((subject, internal or 0, assignment or 0, attendance or 0, total, risk))
+        subjects.append(subject)
+        totals.append(total)
 
     return render_template(
         'student_dashboard.html',
@@ -201,29 +253,23 @@ def student():
         totals=totals
     )
 
+
 # ================= CREATE CLASS =================
 @app.route('/create_class', methods=['POST'])
 def create_class():
-    if session.get('role') != 'teacher':
-        return redirect('/login')
-
     code = generate_code()
-
     cursor.execute(
         "INSERT INTO classrooms (class_name,class_code,teacher_id) VALUES (%s,%s,%s)",
         (request.form['class_name'], code, session['user_id'])
     )
     db.commit()
-
     flash(f"Class Code: {code}")
     return redirect('/teacher')
+
 
 # ================= ADD SUBJECT =================
 @app.route('/add_subject', methods=['POST'])
 def add_subject():
-    if session.get('role') != 'teacher':
-        return redirect('/login')
-
     code = generate_code(5)
 
     cursor.execute("""
@@ -240,15 +286,12 @@ def add_subject():
 
     db.commit()
     flash(f"Subject Code: {code}")
-
     return redirect('/teacher')
+
 
 # ================= JOIN CLASS =================
 @app.route('/join_class', methods=['POST'])
 def join_class():
-    if session.get('role') != 'student':
-        return redirect('/login')
-
     cursor.execute("SELECT id FROM classrooms WHERE class_code=%s", (request.form['class_code'],))
     c = cursor.fetchone()
 
@@ -276,96 +319,56 @@ def join_class():
         """, (session['user_id'], sub[0]))
 
     db.commit()
-
     return redirect('/student')
 
-# ================= ADD MARKS =================
-@app.route('/add_marks', methods=['POST'])
-def add_marks():
-    if session.get('role') != 'teacher':
-        return redirect('/login')
 
-    student_id = request.form['student_id']
-    subject_id = request.form['subject_id']
-    marks = request.form['marks']
-
-    cursor.execute("""
-        INSERT INTO marks (student_id, subject_id, marks)
-        VALUES (%s,%s,%s)
-    """, (student_id, subject_id, marks))
-
-    db.commit()
-    return redirect('/teacher')
-
-# ================= BULK UPLOAD =================
+# ================= CSV UPLOAD =================
 @app.route('/upload_marks', methods=['POST'])
 def upload_marks():
-    if 'user_id' not in session or session.get('role') != 'teacher':
-        return redirect('/login')
-
     file = request.files['file']
     subject_id = request.form['subject_id']
 
     if not file:
         return "No file uploaded"
 
-    filename = file.filename
+    df = pd.read_csv(file) if file.filename.endswith('.csv') else pd.read_excel(file)
 
-    try:
-        if filename.endswith('.csv'):
-            df = pd.read_csv(file)
-        elif filename.endswith('.xlsx'):
-            df = pd.read_excel(file)
-        else:
-            return "Only CSV and Excel allowed"
+    for _, row in df.iterrows():
+        try:
+            email = row['email']
 
-        df.columns = df.columns.str.strip().str.lower()
+            internal = min(50, int(row['internal_marks']))
+            assignment = min(50, int(row['assignment_marks']))
+            attendance = min(100, int(row['attendance']))
 
-        required = ['email', 'internal_marks', 'assignment_marks', 'attendance']
-        for col in required:
-            if col not in df.columns:
-                return f"Missing column: {col}"
+            total = min(100, internal + assignment)
 
-        for _, row in df.iterrows():
-            email = str(row['email']).strip()
-            internal = int(row['internal_marks'])
-            assignment = int(row['assignment_marks'])
-            attendance = int(row['attendance'])
-
-            total = internal + assignment
-
-            cursor.execute(
-                "SELECT id FROM users WHERE email=%s AND role='student'",
-                (email,)
-            )
+            cursor.execute("SELECT id FROM users WHERE email=%s", (email,))
             student = cursor.fetchone()
 
             if student:
                 student_id = student[0]
 
                 cursor.execute("""
+                    INSERT IGNORE INTO student_subjects (student_id, subject_id)
+                    VALUES (%s,%s)
+                """, (student_id, subject_id))
+
+                cursor.execute("""
                     INSERT INTO marks 
                     (student_id, subject_id, internal_marks, assignment_marks, attendance, total_marks)
                     VALUES (%s,%s,%s,%s,%s,%s)
                     ON DUPLICATE KEY UPDATE
-                        internal_marks=%s,
-                        assignment_marks=%s,
-                        attendance=%s,
-                        total_marks=%s
-                """, (
-                    student_id, subject_id,
-                    internal, assignment, attendance, total,
-                    internal, assignment, attendance, total
-                ))
+                    internal_marks=%s, assignment_marks=%s, attendance=%s, total_marks=%s
+                """, (student_id, subject_id, internal, assignment, attendance, total,
+                      internal, assignment, attendance, total))
 
-        db.commit()
-        flash("File uploaded successfully!")
+        except:
+            continue
 
-    except Exception as e:
-        return f"Error: {str(e)}"
-
+    db.commit()
     return redirect('/teacher')
 
-# ================= RUN =================
+
 if __name__ == "__main__":
     app.run(debug=True)

@@ -6,7 +6,6 @@ body {
     margin: 0;
     padding: 0;
 
-    /* Background Image */
     background: url("/static/bg.jpg") no-repeat center center fixed;
     background-size: cover;
 }
@@ -44,7 +43,7 @@ h2, h3 {
 }
 
 /* =========================
-   FORM BOX (LOGIN / REGISTER / HOME)
+   FORM BOX
 ========================= */
 .form-box {
     background: rgba(255, 255, 255, 0.95);
@@ -59,7 +58,6 @@ h2, h3 {
     border: 1px solid rgba(255,255,255,0.2);
 }
 
-/* INPUT FIELDS */
 .form-box input,
 .form-box select {
     width: 100%;
@@ -146,6 +144,11 @@ th, td {
     text-align: center;
 }
 
+/* Hover effect (NEW - professional) */
+tr:hover {
+    background: rgba(0, 123, 255, 0.08);
+}
+
 /* =========================
    LIST STYLING
 ========================= */
@@ -156,7 +159,7 @@ ul {
 }
 
 /* =========================
-   MAIN LAYOUT (SIDEBAR SYSTEM)
+   MAIN LAYOUT
 ========================= */
 .main {
     display: flex;
@@ -205,7 +208,7 @@ ul {
 }
 
 /* =========================
-   SECTIONS (FORM BOXES INSIDE DASHBOARD)
+   SECTIONS
 ========================= */
 .section {
     background: rgba(255,255,255,0.95);
@@ -226,7 +229,6 @@ ul {
     gap: 12px;
 }
 
-/* INPUTS INSIDE SECTION */
 .section input,
 .section select {
     padding: 10px;
@@ -235,7 +237,6 @@ ul {
     font-size: 14px;
 }
 
-/* BUTTON INSIDE SECTION */
 .section button {
     width: fit-content;
     padding: 10px 20px;
@@ -243,7 +244,87 @@ ul {
 }
 
 /* =========================
-   RESPONSIVE (MOBILE SUPPORT)
+   MODAL
+========================= */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+
+    background: rgba(0, 0, 0, 0.6);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    width: 350px;
+    text-align: center;
+    position: relative;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.modal-content input,
+.modal-content select {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+/* =========================
+   AI RISK COLORS (NEW)
+========================= */
+.good {
+    color: #2ecc71;
+    font-weight: bold;
+}
+
+.warning {
+    color: #f39c12;
+    font-weight: bold;
+}
+
+.at-risk {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* =========================
+   BADGE STYLE (NEW)
+========================= */
+.good, .warning, .at-risk {
+    padding: 5px 10px;
+    border-radius: 5px;
+    display: inline-block;
+}
+
+.good {
+    background: rgba(46, 204, 113, 0.15);
+}
+
+.warning {
+    background: rgba(243, 156, 18, 0.15);
+}
+
+.at-risk {
+    background: rgba(231, 76, 60, 0.15);
+}
+
+/* =========================
+   RESPONSIVE
 ========================= */
 @media (max-width: 768px) {
 
@@ -261,46 +342,4 @@ ul {
         margin-left: 0;
         width: 100%;
     }
-}
-
-/* ===== MODAL BACKGROUND ===== */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-
-    background: rgba(0, 0, 0, 0.6);
-    justify-content: center;
-    align-items: center;
-}
-
-/* ===== MODAL BOX ===== */
-.modal-content {
-    background: white;
-    padding: 25px;
-    border-radius: 10px;
-    width: 350px;
-    text-align: center;
-    position: relative;
-}
-
-/* CLOSE BUTTON */
-.close {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    font-size: 20px;
-    cursor: pointer;
-}
-
-/* MODAL INPUTS */
-.modal-content input,
-.modal-content select {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
 }
