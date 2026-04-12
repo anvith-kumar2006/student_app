@@ -14,6 +14,7 @@ db = mysql.connector.connect(
 )
 cursor = db.cursor()
 
+
 def generate_code(length=6):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
@@ -94,101 +95,6 @@ def logout():
     session.clear()
     return redirect('/')
 
-
-# ================= TEACHER DASHBOARD =================
-@app.route('/teacher')
-def teacher():
-    if 'user_id' not in session or session.get('role') != 'teacher':
-        return redirect('/login')
-
-    teacher_id = session['user_id']
-
-    cursor.execute("SELECT id, class_name FROM classrooms WHERE teacher_id=%s", (teacher_id,))
-    classes = cursor.fetchall()
-
-    cursor.execute("""
-        SELECT DISTINCT u.id, u.name, u.email,
-               COALESCE(c.class_name, c2.class_name) AS class_name
-        FROM users u
-        LEFT JOIN students s ON u.id = s.user_id
-        LEFT JOIN classrooms c ON s.class_id = c.id
-        LEFT JOIN student_subjects ss ON u.id = ss.student_id
-        LEFT JOIN subjects sub ON ss.subject_id = sub.id
-        LEFT JOIN classrooms c2 ON sub.class_id = c2.id
-        WHERE u.role = 'student'
-        AND (c.teacher_id = %s OR c2.teacher_id = %s)
-    """, (teacher_id, teacher_id))
-    students = cursor.fetchall()
-
-    cursor.execute("""
-        SELECT id, subject_name FROM subjects
-        WHERE class_id IN (
-            SELECT id FROM classrooms WHERE teacher_id = %s
-        )
-    """, (teacher_id,))
-    subjects = cursor.fetchall()
-
-    cursor.execute("""
-        SELECT sub.subject_name, AVG(m.total_marks)
-        FROM marks m
-        JOIN subjects sub ON m.subject_id = sub.id
-        JOIN classrooms c ON sub.class_id = c.id
-        WHERE c.teacher_id = %s
-        GROUP BY sub.subject_name
-    """, (teacher_id,))
-    graph_data = cursor.fetchall()
-
-    graph_subjects = [g[0] for g in graph_data] if graph_data else []
-    graph_avg = [min(100, float(g[1])) for g in graph_data] if graph_data else []
-
-    cursor.execute("""
-        SELECT u.name, AVG(m.total_marks)
-        FROM marks m
-        JOIN users u ON m.student_id = u.id
-        JOIN subjects sub ON m.subject_id = sub.id
-        JOIN classrooms c ON sub.class_id = c.id
-        WHERE c.teacher_id = %s
-        GROUP BY u.name
-    """, (teacher_id,))
-    student_graph = cursor.fetchall()
-
-    student_names = [s[0] for s in student_graph] if student_graph else []
-    student_avg = [min(100, float(s[1])) for s in student_graph] if student_graph else []
-
-    cursor.execute("""
-        SELECT u.name, m.internal_marks, m.assignment_marks, m.attendance,
-               sub.min_internal_marks, sub.assignment_marks, sub.min_attendance
-        FROM marks m
-        JOIN users u ON m.student_id = u.id
-        JOIN subjects sub ON m.subject_id = sub.id
-        JOIN classrooms c ON sub.class_id = c.id
-        WHERE c.teacher_id = %s
-    """, (teacher_id,))
-
-    risk_data = cursor.fetchall()
-    risky_students = []
-
-    for r in risk_data:
-        name, internal, assignment, attendance, min_i, min_a, min_att = r
-        risk = calculate_risk(internal, assignment, attendance, min_i, min_a, min_att)
-
-        if risk == "At-Risk":
-            risky_students.append((name, internal or 0, attendance or 0))
-
-    return render_template(
-        'teacher_dashboard.html',
-        classes=classes,
-        students=students,
-        subjects=subjects,
-        graph_subjects=graph_subjects,
-        graph_avg=graph_avg,
-        student_names=student_names,
-        student_avg=student_avg,
-        risky_students=risky_students
-    )
-
-
-# ================= STUDENT DASHBOARD =================
 @app.route('/student')
 def student():
     if 'user_id' not in session or session.get('role') != 'student':
@@ -252,6 +158,130 @@ def student():
         subjects=subjects,
         totals=totals
     )
+
+
+
+# ================= TEACHER DASHBOARD =================
+@app.route('/teacher')
+def teacher():
+    if 'user_id' not in session or session.get('role') != 'teacher':
+        return redirect('/login')
+
+    teacher_id = session['user_id']
+
+    cursor.execute("SELECT id, class_name FROM classrooms WHERE teacher_id=%s", (teacher_id,))
+    classes = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT DISTINCT u.id, u.name, u.email,
+               COALESCE(c.class_name, c2.class_name) AS class_name
+        FROM users u
+        LEFT JOIN students s ON u.id = s.user_id
+        LEFT JOIN classrooms c ON s.class_id = c.id
+        LEFT JOIN student_subjects ss ON u.id = ss.student_id
+        LEFT JOIN subjects sub ON ss.subject_id = sub.id
+        LEFT JOIN classrooms c2 ON sub.class_id = c2.id
+        WHERE u.role = 'student'
+        AND (c.teacher_id = %s OR c2.teacher_id = %s)
+    """, (teacher_id, teacher_id))
+    students = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT id, subject_name FROM subjects
+        WHERE class_id IN (
+            SELECT id FROM classrooms WHERE teacher_id = %s
+        )
+    """, (teacher_id,))
+    subjects = cursor.fetchall()
+
+    # GRAPH
+    cursor.execute("""
+        SELECT sub.subject_name, AVG(m.total_marks)
+        FROM marks m
+        JOIN subjects sub ON m.subject_id = sub.id
+        JOIN classrooms c ON sub.class_id = c.id
+        WHERE c.teacher_id = %s
+        GROUP BY sub.subject_name
+    """, (teacher_id,))
+    graph_data = cursor.fetchall()
+
+    graph_subjects = [g[0] for g in graph_data] if graph_data else []
+    graph_avg = [min(100, float(g[1])) for g in graph_data] if graph_data else []
+
+    # STUDENT GRAPH
+    cursor.execute("""
+        SELECT u.name, AVG(m.total_marks)
+        FROM marks m
+        JOIN users u ON m.student_id = u.id
+        JOIN subjects sub ON m.subject_id = sub.id
+        JOIN classrooms c ON sub.class_id = c.id
+        WHERE c.teacher_id = %s
+        GROUP BY u.name
+    """, (teacher_id,))
+    student_graph = cursor.fetchall()
+
+    student_names = [s[0] for s in student_graph] if student_graph else []
+    student_avg = [min(100, float(s[1])) for s in student_graph] if student_graph else []
+
+    # RISK
+    cursor.execute("""
+        SELECT u.name, m.internal_marks, m.assignment_marks, m.attendance,
+               sub.min_internal_marks, sub.assignment_marks, sub.min_attendance
+        FROM marks m
+        JOIN users u ON m.student_id = u.id
+        JOIN subjects sub ON m.subject_id = sub.id
+        JOIN classrooms c ON sub.class_id = c.id
+        WHERE c.teacher_id = %s
+    """, (teacher_id,))
+
+    risk_data = cursor.fetchall()
+    risky_students = []
+
+    for r in risk_data:
+        name, internal, assignment, attendance, min_i, min_a, min_att = r
+        risk = calculate_risk(internal, assignment, attendance, min_i, min_a, min_att)
+
+        if risk == "At-Risk":
+            risky_students.append((name, internal or 0, attendance or 0))
+
+    return render_template(
+        'teacher_dashboard.html',
+        classes=classes,
+        students=students,
+        subjects=subjects,
+        graph_subjects=graph_subjects,
+        graph_avg=graph_avg,
+        student_names=student_names,
+        student_avg=student_avg,
+        risky_students=risky_students
+    )
+
+
+# ================= ADD MARKS (🔥 FIX ADDED) =================
+@app.route('/add_marks', methods=['POST'])
+def add_marks():
+    student_id = request.form['student_id']
+    subject_id = request.form['subject_id']
+    marks = int(request.form['marks'])
+
+    internal = min(50, marks)
+    assignment = min(50, marks)
+    attendance = 75
+
+    total = min(100, internal + assignment)
+
+    cursor.execute("""
+        INSERT INTO marks (student_id, subject_id, internal_marks, assignment_marks, attendance, total_marks)
+        VALUES (%s,%s,%s,%s,%s,%s)
+        ON DUPLICATE KEY UPDATE
+        internal_marks=%s, assignment_marks=%s, attendance=%s, total_marks=%s
+    """, (
+        student_id, subject_id, internal, assignment, attendance, total,
+        internal, assignment, attendance, total
+    ))
+
+    db.commit()
+    return redirect('/teacher')
 
 
 # ================= CREATE CLASS =================
