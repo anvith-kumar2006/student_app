@@ -21,8 +21,9 @@
         <a href="#" onclick="openModal('uploadModal')">Upload File</a>
         <a href="#" onclick="openModal('classGraphModal')">Class Analytics</a>
         <a href="#" onclick="openModal('studentGraphModal')">Student Analytics</a>
+        <a href="#" onclick="openModal('trendModal')">📈 Performance Trend</a>
         <a href="#students">Students</a>
-        <a href="#risk">At-Risk Students</a> <!-- ✅ NEW -->
+        <a href="#risk">At-Risk Students</a>
         <a href="/logout">Logout</a>
     </div>
 
@@ -31,7 +32,6 @@
 
         <h2>Welcome Teacher 👨‍🏫</h2>
 
-        <!-- CARDS -->
         <div class="dashboard-cards">
             <div class="card">
                 <h3>Total Classes</h3>
@@ -65,7 +65,7 @@
             </table>
         </div>
 
-        <!-- ================= AI RISK SECTION ================= -->
+        <!-- RISK -->
         <div class="section" id="risk">
             <h3>🚨 At Risk Students</h3>
 
@@ -99,24 +99,24 @@
 <!-- CREATE CLASS -->
 <div id="createClassModal" class="modal">
     <div class="modal-content">
-        <span class="close" onclick="closeModal('performanceModal')">&times;</span>
         <span class="close" onclick="closeModal('createClassModal')">&times;</span>
         <h3>Create Class</h3>
         <form method="POST" action="/create_class">
-            <input type="text" name="class_name" required>
+            <input type="text" name="class_name" placeholder="Enter Class Name" required>
             <button>Create</button>
         </form>
     </div>
 </div>
 
-<!-- ADD SUBJECT -->
+<!-- 🔥 UPDATED ADD SUBJECT (ONLY THIS PART IMPROVED) -->
 <div id="addSubjectModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeModal('addSubjectModal')">&times;</span>
         <h3>Add Subject</h3>
 
         <form method="POST" action="/add_subject">
-            <input type="text" name="subject_name" required>
+
+            <input type="text" name="subject_name" placeholder="Enter Subject Name" required>
 
             <select name="class_id">
                 {% for c in classes %}
@@ -124,9 +124,11 @@
                 {% endfor %}
             </select>
 
-            <input type="number" name="min_attendance" placeholder="Min Attendance %" required>
-            <input type="number" name="min_marks" placeholder="Min Internal Marks" required>
-            <input type="number" name="assignment_marks" placeholder="Min Assignment Marks" required>
+            <input type="number" name="min_attendance" placeholder="Minimum Attendance % (e.g. 75)" required>
+
+            <input type="number" name="min_marks" placeholder="Minimum Internal Marks (e.g. 20)" required>
+
+            <input type="number" name="assignment_marks" placeholder="Assignment Marks (e.g. 25)" required>
 
             <button>Add</button>
         </form>
@@ -194,21 +196,27 @@
     </div>
 </div>
 
-<!-- ONLY CHANGE IS INSIDE JS BELOW -->
+<!-- TREND MODAL -->
+<div id="trendModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('trendModal')">&times;</span>
+        <h3>📈 Performance Trend</h3>
+        <canvas id="trendChart"></canvas>
+    </div>
+</div>
+
+<!-- ================= JS ================= -->
 <script>
 let classChart = null;
 let studentChart = null;
+let trendChart = null;
 
 function openModal(id) {
     document.getElementById(id).style.display = "flex";
 
-    if (id === 'classGraphModal') {
-        setTimeout(renderClassChart, 200);
-    }
-
-    if (id === 'studentGraphModal') {
-        setTimeout(renderStudentChart, 200);
-    }
+    if (id === 'classGraphModal') setTimeout(renderClassChart, 200);
+    if (id === 'studentGraphModal') setTimeout(renderStudentChart, 200);
+    if (id === 'trendModal') setTimeout(renderTrendChart, 200);
 }
 
 function closeModal(id) {
@@ -226,23 +234,8 @@ function renderClassChart() {
 
     classChart = new Chart(ctx, {
         type: 'bar',
-        data: {
-            labels: subjects,
-            datasets: [{
-                data: avg,
-                backgroundColor: 'blue'
-            }]
-        },
-
-        // ✅ ADDED THIS BLOCK ONLY
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100
-                }
-            }
-        }
+        data: { labels: subjects, datasets: [{ data: avg, backgroundColor: 'blue' }] },
+        options: { scales: { y: { beginAtZero: true, max: 100 } } }
     });
 }
 
@@ -260,23 +253,40 @@ function renderStudentChart() {
         data: {
             labels: names,
             datasets: [{
-                label: 'Students',
                 data: marks,
-                backgroundColor: names.map(() =>
-                    '#' + Math.floor(Math.random()*16777215).toString(16)
-                )
+                backgroundColor: names.map(() => '#' + Math.floor(Math.random()*16777215).toString(16))
             }]
         },
-
-        // ✅ UPDATED EXISTING OPTIONS (SAFE)
         options: {
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100
-                }
-            },
+            scales: { y: { beginAtZero: true, max: 100 } },
             plugins: { legend: { display: false } }
+        }
+    });
+}
+
+// TREND GRAPH
+function renderTrendChart() {
+    const labels = JSON.parse('{{ trend_labels | tojson | safe }}');
+    const scores = JSON.parse('{{ trend_scores | tojson | safe }}');
+
+    if (trendChart) trendChart.destroy();
+
+    const ctx = document.getElementById('trendChart').getContext('2d');
+
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Performance Trend',
+                data: scores,
+                borderColor: 'green',
+                fill: false,
+                tension: 0.3
+            }]
+        },
+        options: {
+            scales: { y: { beginAtZero: true, max: 100 } }
         }
     });
 }

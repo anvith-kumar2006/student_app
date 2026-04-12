@@ -38,6 +38,34 @@ def calculate_risk(internal, assignment, attendance, min_internal, min_assignmen
         return "At-Risk"
 
 
+# ================= 🔥 AI PREDICTION FUNCTION =================
+def predict_next_score(scores):
+    if len(scores) < 2:
+        return scores[-1] if scores else 0
+
+    x = list(range(len(scores)))
+    y = scores
+
+    n = len(x)
+    sum_x = sum(x)
+    sum_y = sum(y)
+    sum_xy = sum(i*j for i, j in zip(x, y))
+    sum_x2 = sum(i*i for i in x)
+
+    denominator = (n * sum_x2 - sum_x**2)
+
+    if denominator == 0:
+        return y[-1]
+
+    m = (n * sum_xy - sum_x * sum_y) / denominator
+    b = (sum_y - m * sum_x) / n
+
+    next_x = len(scores)
+    predicted = m * next_x + b
+
+    return round(min(100, max(0, predicted)), 2)
+
+
 # ================= HOME =================
 @app.route('/')
 def home():
@@ -95,6 +123,8 @@ def logout():
     session.clear()
     return redirect('/')
 
+
+# ================= STUDENT DASHBOARD =================
 @app.route('/student')
 def student():
     if 'user_id' not in session or session.get('role') != 'student':
@@ -102,7 +132,6 @@ def student():
 
     user_id = session['user_id']
 
-    # ✅ FIXED CLASSES
     cursor.execute("""
         SELECT DISTINCT c.class_name, c.class_code
         FROM student_subjects ss
@@ -112,7 +141,6 @@ def student():
     """, (user_id,))
     classes = cursor.fetchall()
 
-    # ✅ FIXED SUBJECT COUNT
     cursor.execute("""
         SELECT COUNT(DISTINCT subject_id)
         FROM student_subjects
@@ -128,10 +156,12 @@ def student():
                m.total_marks,
                sub.min_internal_marks,
                sub.assignment_marks,
-               sub.min_attendance
+               sub.min_attendance,
+               m.id
         FROM marks m
         JOIN subjects sub ON m.subject_id = sub.id
         WHERE m.student_id = %s
+        ORDER BY m.id ASC
     """, (user_id,))
 
     data = cursor.fetchall()
@@ -140,8 +170,11 @@ def student():
     subjects = []
     totals = []
 
-    for m in data:
-        subject, internal, assignment, attendance, total, min_i, min_a, min_att = m
+    test_labels = []
+    test_scores = []
+
+    for i, m in enumerate(data):
+        subject, internal, assignment, attendance, total, min_i, min_a, min_att, mid = m
 
         total = min(100, total or 0)
         risk = calculate_risk(internal, assignment, attendance, min_i, min_a, min_att)
@@ -150,15 +183,23 @@ def student():
         subjects.append(subject)
         totals.append(total)
 
+        test_labels.append(f"Test {i+1}")
+        test_scores.append(total)
+
+    # 🔥 AI PREDICTION
+    predicted_score = predict_next_score(totals)
+
     return render_template(
         'student_dashboard.html',
         classes=classes,
         subject_count=subject_count,
         marks=marks,
         subjects=subjects,
-        totals=totals
+        totals=totals,
+        test_labels=test_labels,
+        test_scores=test_scores,
+        predicted_score=predicted_score   # ✅ NEW
     )
-
 
 
 # ================= TEACHER DASHBOARD =================
@@ -223,6 +264,20 @@ def teacher():
     student_names = [s[0] for s in student_graph] if student_graph else []
     student_avg = [min(100, float(s[1])) for s in student_graph] if student_graph else []
 
+    # TREND
+    cursor.execute("""
+        SELECT m.total_marks
+        FROM marks m
+        JOIN subjects sub ON m.subject_id = sub.id
+        JOIN classrooms c ON sub.class_id = c.id
+        WHERE c.teacher_id = %s
+        ORDER BY m.id ASC
+    """, (teacher_id,))
+
+    trend = cursor.fetchall()
+    trend_labels = [f"Test {i+1}" for i in range(len(trend))]
+    trend_scores = [min(100, t[0] or 0) for t in trend]
+
     # RISK
     cursor.execute("""
         SELECT u.name, m.internal_marks, m.assignment_marks, m.attendance,
@@ -253,11 +308,13 @@ def teacher():
         graph_avg=graph_avg,
         student_names=student_names,
         student_avg=student_avg,
-        risky_students=risky_students
+        risky_students=risky_students,
+        trend_labels=trend_labels,
+        trend_scores=trend_scores
     )
 
 
-# ================= ADD MARKS (🔥 FIX ADDED) =================
+# ================= ADD MARKS =================
 @app.route('/add_marks', methods=['POST'])
 def add_marks():
     student_id = request.form['student_id']

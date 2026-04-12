@@ -19,10 +19,10 @@
         <a href="#">Dashboard</a>
         <a href="#" onclick="openModal('joinClassModal')">Join Class</a>
 
-        <!-- MODAL ACCESS -->
         <a href="#" onclick="openModal('classesModal')">My Classes</a>
         <a href="#" onclick="openModal('marksModal')">My Performance</a>
         <a href="#" onclick="openModal('graphModal')">Performance Graph</a>
+        <a href="#" onclick="openModal('trendModal')">📈 Performance Trend</a>
 
         <a href="/logout">Logout</a>
     </div>
@@ -42,6 +42,12 @@
             <div class="card">
                 <h3>Total Subjects</h3>
                 <p>{{ subject_count }}</p>
+            </div>
+
+            <!-- 🔥 NEW AI CARD -->
+            <div class="card">
+                <h3>AI Predicted Score 🤖</h3>
+                <p>{{ predicted_score }}</p>
             </div>
         </div>
 
@@ -182,14 +188,23 @@
     </div>
 </div>
 
+<!-- TREND MODAL -->
+<div id="trendModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('trendModal')">&times;</span>
+
+        <h3>📈 Performance Trend (Test-wise)</h3>
+        <canvas id="trendChart"></canvas>
+    </div>
+</div>
+
 <!-- ================= JS ================= -->
 <script>
 function openModal(id) {
     document.getElementById(id).style.display = "flex";
 
-    if (id === 'graphModal') {
-        setTimeout(renderModalChart, 200);
-    }
+    if (id === 'graphModal') setTimeout(renderModalChart, 200);
+    if (id === 'trendModal') setTimeout(renderTrendChart, 200);
 }
 
 function closeModal(id) {
@@ -197,7 +212,7 @@ function closeModal(id) {
 }
 </script>
 
-<!-- ================= MODAL GRAPH ================= -->
+<!-- GRAPH -->
 <script>
 const subjects = JSON.parse('{{ subjects | tojson | safe }}');
 const totals = JSON.parse('{{ totals | tojson | safe }}');
@@ -220,12 +235,38 @@ function renderModalChart() {
             }]
         },
         options: {
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100
-                }
-            }
+            scales: { y: { beginAtZero: true, max: 100 } }
+        }
+    });
+}
+</script>
+
+<!-- TREND GRAPH -->
+<script>
+const testLabels = JSON.parse('{{ test_labels | tojson | safe }}');
+const testScores = JSON.parse('{{ test_scores | tojson | safe }}');
+
+let trendChart = null;
+
+function renderTrendChart() {
+    if (trendChart) trendChart.destroy();
+
+    const ctx = document.getElementById('trendChart').getContext('2d');
+
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: testLabels,
+            datasets: [{
+                label: 'Performance Trend',
+                data: testScores,
+                borderColor: 'green',
+                fill: false,
+                tension: 0.3
+            }]
+        },
+        options: {
+            scales: { y: { beginAtZero: true, max: 100 } }
         }
     });
 }
