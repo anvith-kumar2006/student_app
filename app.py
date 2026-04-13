@@ -1,7 +1,9 @@
-from flask import Flask, render_template, request, redirect, session, flash
+from flask import Flask, render_template, request, redirect, session, flash, Response
 import mysql.connector
 import random, string
 import pandas as pd
+import csv
+from io import StringIO
 
 app = Flask(__name__)
 app.secret_key = "secret123"
@@ -10,9 +12,10 @@ db = mysql.connector.connect(
     host="127.0.0.1",
     user="root",
     password="admin",
-    database="student_db"
+    database="student_db",
+    autocommit=True
 )
-cursor = db.cursor()
+cursor = db.cursor(buffered=True)
 
 
 def generate_code(length=6):
@@ -30,73 +33,61 @@ def calculate_risk(internal, assignment, attendance, min_internal, min_assignmen
     min_assignment = min_assignment or 0
     min_attendance = min_attendance or 0
 
-    if internal >= min_internal and assignment >= min_assignment and attendance >= min_attendance:
-        return "Good"
-    elif internal >= (0.7 * min_internal) and attendance >= (0.7 * min_attendance):
-        return "Warning"
-    else:
+    if internal < min_internal or assignment < min_assignment or attendance < min_attendance:
         return "At-Risk"
 
+    elif (
+        internal < (1.2 * min_internal) or
+        assignment < (1.2 * min_assignment) or
+        attendance < (1.2 * min_attendance)
+    ):
+        return "Warning"
 
-# ================= 🔥 AI PREDICTION FUNCTION =================
-def predict_next_score(scores):
-    if len(scores) < 2:
-        return scores[-1] if scores else 0
-
-    x = list(range(len(scores)))
-    y = scores
-
-    n = len(x)
-    sum_x = sum(x)
-    sum_y = sum(y)
-    sum_xy = sum(i*j for i, j in zip(x, y))
-    sum_x2 = sum(i*i for i in x)
-
-    denominator = (n * sum_x2 - sum_x**2)
-
-    if denominator == 0:
-        return y[-1]
-
-    m = (n * sum_xy - sum_x * sum_y) / denominator
-    b = (sum_y - m * sum_x) / n
-
-    next_x = len(scores)
-    predicted = m * next_x + b
-
-    return round(min(100, max(0, predicted)), 2)
+    else:
+        return "Good"
 
 
-# ================= HOME =================
 @app.route('/')
 def home():
     return render_template('home.html')
 
 
-# ================= REGISTER =================
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         if request.form['password'] != request.form['confirm_password']:
             return "Passwords do not match"
 
+        email = request.form['email'].lower()
+
+        cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
+        existing_user = cursor.fetchone()
+
+        if existing_user:
+            return "Email already exists"
+
         try:
             cursor.execute(
                 "INSERT INTO users (name,email,role,password) VALUES (%s,%s,%s,%s)",
-                (request.form['name'], request.form['email'], request.form['role'], request.form['password'])
+                (request.form['name'], email, request.form['role'], request.form['password'])
             )
             db.commit()
-        except:
-            return "Email already exists"
+        except Exception as e:
+            print("REGISTER ERROR:", e)
+            return "Error occurred while registering"
 
         return redirect('/login')
 
     return render_template('register.html')
 
 
-# ================= LOGIN =================
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
+
+        if not db.is_connected():
+            db.reconnect()
+
         cursor.execute(
             "SELECT * FROM users WHERE email=%s AND password=%s",
             (request.form['email'], request.form['password'])
@@ -105,6 +96,8 @@ def login():
 
         if user:
             session['user_id'] = user[0]
+            session['name'] = user[1]
+            session['email'] = user[2]
             session['role'] = user[3]
 
             if user[3] == 'student':
@@ -117,16 +110,17 @@ def login():
     return render_template('login.html')
 
 
-# ================= LOGOUT =================
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/')
 
 
-# ================= STUDENT DASHBOARD =================
 @app.route('/student')
 def student():
+    if not db.is_connected():
+        db.reconnect()
+
     if 'user_id' not in session or session.get('role') != 'student':
         return redirect('/login')
 
@@ -156,12 +150,10 @@ def student():
                m.total_marks,
                sub.min_internal_marks,
                sub.assignment_marks,
-               sub.min_attendance,
-               m.id
+               sub.min_attendance
         FROM marks m
         JOIN subjects sub ON m.subject_id = sub.id
         WHERE m.student_id = %s
-        ORDER BY m.id ASC
     """, (user_id,))
 
     data = cursor.fetchall()
@@ -170,24 +162,32 @@ def student():
     subjects = []
     totals = []
 
-    test_labels = []
-    test_scores = []
-
-    for i, m in enumerate(data):
-        subject, internal, assignment, attendance, total, min_i, min_a, min_att, mid = m
+    for m in data:
+        subject, internal, assignment, attendance, total, min_i, min_a, min_att = m
 
         total = min(100, total or 0)
         risk = calculate_risk(internal, assignment, attendance, min_i, min_a, min_att)
 
-        marks.append((subject, internal or 0, assignment or 0, attendance or 0, total, risk))
+        # ✅ FIXED BACKLOG LOGIC
+        if risk == "At-Risk":
+            backlog = "High"
+        elif risk == "Warning":
+            backlog = "Medium"
+        else:
+            backlog = "Low"
+
+        if attendance < min_att:
+            suggestion = "Improve attendance"
+        elif internal < min_i:
+            suggestion = "Focus on internal exams"
+        elif assignment < min_a:
+            suggestion = "Submit assignments properly"
+        else:
+            suggestion = "Keep performing well"
+
+        marks.append((subject, internal or 0, assignment or 0, attendance or 0, total, risk, backlog, suggestion))
         subjects.append(subject)
         totals.append(total)
-
-        test_labels.append(f"Test {i+1}")
-        test_scores.append(total)
-
-    # 🔥 AI PREDICTION
-    predicted_score = predict_next_score(totals)
 
     return render_template(
         'student_dashboard.html',
@@ -195,16 +195,16 @@ def student():
         subject_count=subject_count,
         marks=marks,
         subjects=subjects,
-        totals=totals,
-        test_labels=test_labels,
-        test_scores=test_scores,
-        predicted_score=predicted_score   # ✅ NEW
+        totals=totals
     )
 
 
-# ================= TEACHER DASHBOARD =================
 @app.route('/teacher')
 def teacher():
+
+    if not db.is_connected():
+        db.reconnect()
+
     if 'user_id' not in session or session.get('role') != 'teacher':
         return redirect('/login')
 
@@ -235,7 +235,6 @@ def teacher():
     """, (teacher_id,))
     subjects = cursor.fetchall()
 
-    # GRAPH
     cursor.execute("""
         SELECT sub.subject_name, AVG(m.total_marks)
         FROM marks m
@@ -249,7 +248,6 @@ def teacher():
     graph_subjects = [g[0] for g in graph_data] if graph_data else []
     graph_avg = [min(100, float(g[1])) for g in graph_data] if graph_data else []
 
-    # STUDENT GRAPH
     cursor.execute("""
         SELECT u.name, AVG(m.total_marks)
         FROM marks m
@@ -264,24 +262,12 @@ def teacher():
     student_names = [s[0] for s in student_graph] if student_graph else []
     student_avg = [min(100, float(s[1])) for s in student_graph] if student_graph else []
 
-    # TREND
-    cursor.execute("""
-        SELECT m.total_marks
-        FROM marks m
-        JOIN subjects sub ON m.subject_id = sub.id
-        JOIN classrooms c ON sub.class_id = c.id
-        WHERE c.teacher_id = %s
-        ORDER BY m.id ASC
-    """, (teacher_id,))
+    weak_subject = min(graph_data, key=lambda x: x[1])[0] if graph_data else None
+    top_student = max(student_graph, key=lambda x: x[1])[0] if student_graph else None
 
-    trend = cursor.fetchall()
-    trend_labels = [f"Test {i+1}" for i in range(len(trend))]
-    trend_scores = [min(100, t[0] or 0) for t in trend]
-
-    # RISK
     cursor.execute("""
-        SELECT u.name, m.internal_marks, m.assignment_marks, m.attendance,
-               sub.min_internal_marks, sub.assignment_marks, sub.min_attendance
+        SELECT u.name, sub.subject_name, m.internal_marks, m.assignment_marks, m.attendance,
+        sub.min_internal_marks, sub.assignment_marks, sub.min_attendance
         FROM marks m
         JOIN users u ON m.student_id = u.id
         JOIN subjects sub ON m.subject_id = sub.id
@@ -293,11 +279,11 @@ def teacher():
     risky_students = []
 
     for r in risk_data:
-        name, internal, assignment, attendance, min_i, min_a, min_att = r
+        name, subject, internal, assignment, attendance, min_i, min_a, min_att = r
         risk = calculate_risk(internal, assignment, attendance, min_i, min_a, min_att)
 
         if risk == "At-Risk":
-            risky_students.append((name, internal or 0, attendance or 0))
+            risky_students.append((name, subject, internal or 0, attendance or 0))
 
     return render_template(
         'teacher_dashboard.html',
@@ -309,12 +295,11 @@ def teacher():
         student_names=student_names,
         student_avg=student_avg,
         risky_students=risky_students,
-        trend_labels=trend_labels,
-        trend_scores=trend_scores
+        weak_subject=weak_subject,
+        top_student=top_student
     )
 
 
-# ================= ADD MARKS =================
 @app.route('/add_marks', methods=['POST'])
 def add_marks():
     student_id = request.form['student_id']
@@ -341,7 +326,6 @@ def add_marks():
     return redirect('/teacher')
 
 
-# ================= CREATE CLASS =================
 @app.route('/create_class', methods=['POST'])
 def create_class():
     code = generate_code()
@@ -354,7 +338,6 @@ def create_class():
     return redirect('/teacher')
 
 
-# ================= ADD SUBJECT =================
 @app.route('/add_subject', methods=['POST'])
 def add_subject():
     code = generate_code(5)
@@ -376,7 +359,6 @@ def add_subject():
     return redirect('/teacher')
 
 
-# ================= JOIN CLASS =================
 @app.route('/join_class', methods=['POST'])
 def join_class():
     cursor.execute("SELECT id FROM classrooms WHERE class_code=%s", (request.form['class_code'],))
@@ -409,7 +391,6 @@ def join_class():
     return redirect('/student')
 
 
-# ================= CSV UPLOAD =================
 @app.route('/upload_marks', methods=['POST'])
 def upload_marks():
     file = request.files['file']
@@ -455,6 +436,43 @@ def upload_marks():
 
     db.commit()
     return redirect('/teacher')
+
+
+@app.route('/download_report')
+def download_report():
+    if 'user_id' not in session or session.get('role') != 'student':
+        return redirect('/login')
+
+    user_id = session['user_id']
+
+    cursor.execute("""
+        SELECT sub.subject_name, 
+               m.internal_marks,
+               m.assignment_marks,
+               m.attendance,
+               m.total_marks
+        FROM marks m
+        JOIN subjects sub ON m.subject_id = sub.id
+        WHERE m.student_id = %s
+    """, (user_id,))
+
+    data = cursor.fetchall()
+
+    output = StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(["Subject", "Internal", "Assignment", "Attendance", "Total"])
+
+    for row in data:
+        writer.writerow(row)
+
+    output.seek(0)
+
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=student_report.csv"}
+    )
 
 
 if __name__ == "__main__":

@@ -19,10 +19,9 @@
         <a href="#">Dashboard</a>
         <a href="#" onclick="openModal('joinClassModal')">Join Class</a>
 
+        <!-- MODAL ACCESS -->
         <a href="#" onclick="openModal('classesModal')">My Classes</a>
-        <a href="#" onclick="openModal('marksModal')">My Performance</a>
         <a href="#" onclick="openModal('graphModal')">Performance Graph</a>
-        <a href="#" onclick="openModal('trendModal')">📈 Performance Trend</a>
 
         <a href="/logout">Logout</a>
     </div>
@@ -30,7 +29,19 @@
     <!-- CONTENT -->
     <div class="content">
 
-        <h2>Welcome Student 👨‍🎓</h2>
+    <div style="display:flex; justify-content: space-between; align-items:center;">
+
+    <h2>Welcome {{ "Student 👨‍🎓" if session.role == 'student' else "Teacher 👨‍🏫" }}</h2>
+
+    <!-- PROFILE BUTTON -->
+    <div onclick="openModal('profileModal')" 
+         style="cursor:pointer; background:#007bff; color:white; padding:10px 15px; border-radius:50%;">
+        👤
+    </div>
+
+</div>
+
+        
 
         <!-- CARDS -->
         <div class="dashboard-cards">
@@ -43,32 +54,15 @@
                 <h3>Total Subjects</h3>
                 <p>{{ subject_count }}</p>
             </div>
-
-            <!-- 🔥 NEW AI CARD -->
-            <div class="card">
-                <h3>AI Predicted Score 🤖</h3>
-                <p>{{ predicted_score }}</p>
-            </div>
         </div>
 
-        <!-- CLASSES -->
-        <div class="section" id="classes">
-            <h3>Your Classes</h3>
+        <!-- ✅ DOWNLOAD BUTTON (NEW FEATURE) -->
+        <a href="/download_report">
+            <button style="margin-bottom: 15px; width: auto;">
+                ⬇ Download Report
+            </button>
+        </a>
 
-            <table>
-                <tr>
-                    <th>Class Name</th>
-                    <th>Code</th>
-                </tr>
-
-                {% for c in classes %}
-                <tr>
-                    <td>{{ c[0] }}</td>
-                    <td>{{ c[1] }}</td>
-                </tr>
-                {% endfor %}
-            </table>
-        </div>
 
         <!-- MARKS -->
         <div class="section" id="marks">
@@ -83,6 +77,8 @@
                     <th>Attendance</th>
                     <th>Total</th>
                     <th>Risk</th>
+                    <th>Backlog</th>
+                    <th>Suggestion</th>
                 </tr>
 
                 {% for m in marks %}
@@ -93,6 +89,8 @@
                     <td>{{ m[3] }}%</td>
                     <td>{{ m[4] }}</td>
                     <td><span class="{{ m[5]|lower }}">{{ m[5] }}</span></td>
+                    <td class="{{ m[6]|lower }}">{{ m[6] }}</td>
+                    <td>{{ m[7] }}</td>
                 </tr>
                 {% endfor %}
             </table>
@@ -143,6 +141,33 @@
     </div>
 </div>
 
+<div id="classesModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('classesModal')">&times;</span>
+
+        <h3>Your Classes 📚</h3>
+
+        {% if classes %}
+        <table>
+            <tr>
+                <th>Class Name</th>
+                <th>Code</th>
+            </tr>
+
+            {% for c in classes %}
+            <tr>
+                <td>{{ c[0] }}</td>
+                <td>{{ c[1] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>No classes joined yet</p>
+        {% endif %}
+
+    </div>
+</div>
+
 <!-- MARKS MODAL -->
 <div id="marksModal" class="modal">
     <div class="modal-content">
@@ -159,6 +184,8 @@
                 <th>Attendance</th>
                 <th>Total</th>
                 <th>Risk</th>
+                <th>Backlog</th>
+                <th>Suggestion</th>
             </tr>
 
             {% for m in marks %}
@@ -169,12 +196,40 @@
                 <td>{{ m[3] }}%</td>
                 <td>{{ m[4] }}</td>
                 <td><span class="{{ m[5]|lower }}">{{ m[5] }}</span></td>
+                <td class="{{ m[6]|lower }}">{{ m[6] }}</td>
+                <td>{{ m[7] }}</td>
             </tr>
             {% endfor %}
         </table>
         {% else %}
         <p>No data available</p>
         {% endif %}
+    </div>
+</div>
+
+<div id="profileModal" class="modal">
+    <div class="modal-content">
+
+        <span class="close" onclick="closeModal('profileModal')">&times;</span>
+
+        <h3>👤 My Profile</h3>
+
+        <div style="text-align:left; margin-top:15px;">
+
+            <p><b>Name:</b> {{ session.get('user_id') }}</p>
+
+            <p><b>Email:</b> {{ session.get('email') if session.get('email') else "Not Available" }}</p>
+
+            <p><b>Role:</b> {{ session.get('role') }}</p>
+
+        </div>
+
+        <br>
+
+        <a href="/logout">
+            <button style="background:red;">Logout</button>
+        </a>
+
     </div>
 </div>
 
@@ -188,23 +243,14 @@
     </div>
 </div>
 
-<!-- TREND MODAL -->
-<div id="trendModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal('trendModal')">&times;</span>
-
-        <h3>📈 Performance Trend (Test-wise)</h3>
-        <canvas id="trendChart"></canvas>
-    </div>
-</div>
-
 <!-- ================= JS ================= -->
 <script>
 function openModal(id) {
     document.getElementById(id).style.display = "flex";
 
-    if (id === 'graphModal') setTimeout(renderModalChart, 200);
-    if (id === 'trendModal') setTimeout(renderTrendChart, 200);
+    if (id === 'graphModal') {
+        setTimeout(renderModalChart, 200);
+    }
 }
 
 function closeModal(id) {
@@ -212,7 +258,7 @@ function closeModal(id) {
 }
 </script>
 
-<!-- GRAPH -->
+<!-- ================= MODAL GRAPH ================= -->
 <script>
 const subjects = JSON.parse('{{ subjects | tojson | safe }}');
 const totals = JSON.parse('{{ totals | tojson | safe }}');
@@ -235,38 +281,12 @@ function renderModalChart() {
             }]
         },
         options: {
-            scales: { y: { beginAtZero: true, max: 100 } }
-        }
-    });
-}
-</script>
-
-<!-- TREND GRAPH -->
-<script>
-const testLabels = JSON.parse('{{ test_labels | tojson | safe }}');
-const testScores = JSON.parse('{{ test_scores | tojson | safe }}');
-
-let trendChart = null;
-
-function renderTrendChart() {
-    if (trendChart) trendChart.destroy();
-
-    const ctx = document.getElementById('trendChart').getContext('2d');
-
-    trendChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: testLabels,
-            datasets: [{
-                label: 'Performance Trend',
-                data: testScores,
-                borderColor: 'green',
-                fill: false,
-                tension: 0.3
-            }]
-        },
-        options: {
-            scales: { y: { beginAtZero: true, max: 100 } }
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
         }
     });
 }
