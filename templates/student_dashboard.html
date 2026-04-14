@@ -17,7 +17,7 @@
         <h2>Student Panel</h2>
 
         <a href="#">Dashboard</a>
-        <a href="#" onclick="openModal('joinClassModal')">Join Class</a>
+    
 
         <!-- MODAL ACCESS -->
         <a href="#" onclick="openModal('classesModal')">My Classes</a>
@@ -105,18 +105,7 @@
 
 <!-- ================= MODALS ================= -->
 
-<!-- JOIN CLASS -->
-<div id="joinClassModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal('joinClassModal')">&times;</span>
 
-        <h3>Join Class</h3>
-        <form method="POST" action="/join_class">
-            <input type="text" name="class_code" placeholder="Enter Class Code" required>
-            <button type="submit">Join</button>
-        </form>
-    </div>
-</div>
 
 <!-- CLASSES MODAL -->
 <div id="classesModal" class="modal">
