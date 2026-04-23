@@ -298,7 +298,7 @@ ul {
     right: 15px;
 
     font-size: 20px;
-    color: white;
+    color: rgb(8, 8, 8);
     cursor: pointer;
 }
 .modal-content input,
@@ -416,4 +416,105 @@ td:last-child {
 .section p {
     font-size: 15px;
     margin: 5px 0;
+}
+
+/* =========================
+   PREMIUM UI UPGRADE
+========================= */
+
+/* Smooth animations */
+* {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Glassmorphism Cards */
+.card, .section, .form-box {
+    backdrop-filter: blur(15px);
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* Gradient Buttons */
+button {
+    background: linear-gradient(135deg, #007bff, #00c6ff);
+    border: none;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+}
+
+/* Sidebar Premium */
+.sidebar {
+    background: linear-gradient(180deg, #0f2027, #203a43, #2c5364);
+    box-shadow: 4px 0 20px rgba(0,0,0,0.4);
+}
+
+.sidebar a {
+    position: relative;
+    overflow: hidden;
+}
+
+.sidebar a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 0%;
+    height: 2px;
+    background: #00c6ff;
+    transition: 0.3s;
+}
+
+.sidebar a:hover::after {
+    width: 100%;
+}
+
+/* Table Premium */
+table {
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+th {
+    background: linear-gradient(135deg, #007bff, #00c6ff);
+}
+
+tr:hover {
+    transform: scale(1.01);
+}
+
+/* Inputs Premium */
+input, select {
+    border: none;
+    outline: none;
+    background: rgba(255,255,255,0.8);
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Modal Premium */
+.modal-content {
+    background: rgba(209, 214, 200, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 15px;
+}
+
+/* Floating Profile Button */
+.content div[onclick] {
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+/* Scrollbar Premium */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-thumb {
+    background: #00c6ff;
+    border-radius: 10px;
+}
+.card:hover {
+    transform: translateY(-8px) scale(1.03);
 }
