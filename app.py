@@ -4,6 +4,10 @@ import random, string
 import pandas as pd
 import csv
 from io import StringIO
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = "secret123"
@@ -11,7 +15,7 @@ app.secret_key = "secret123"
 db = mysql.connector.connect(
     host="127.0.0.1",
     user="root",
-    password="admin",
+    password=os.getenv("DB_PASSWORD"),
     database="student_db",
     autocommit=True
 )
